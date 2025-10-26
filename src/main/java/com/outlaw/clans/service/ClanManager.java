@@ -104,6 +104,16 @@ public class ClanManager {
                     clansCfg.set(p+".z", l.getBlockZ());
                 }
                 if (s.getNpcUuid()!=null) clansCfg.set(p+".npc", s.getNpcUuid().toString());
+                if (s.getFarmTypeId() != null) clansCfg.set(p+".farm_type", s.getFarmTypeId());
+                if (s.getSchematicName() != null) clansCfg.set(p+".schematic", s.getSchematicName());
+                if (s.getFarmChestLocation() != null) {
+                    Location chest = s.getFarmChestLocation();
+                    clansCfg.set(p+".chest.world", chest.getWorld() != null ? chest.getWorld().getName() : plugin.getConfig().getString("territory.world","world"));
+                    clansCfg.set(p+".chest.x", chest.getBlockX());
+                    clansCfg.set(p+".chest.y", chest.getBlockY());
+                    clansCfg.set(p+".chest.z", chest.getBlockZ());
+                }
+                if (s.getResourcePreference() != null) clansCfg.set(p+".resource", s.getResourcePreference());
             }
         }
         try { clansCfg.save(clansFile); } catch (IOException e) { e.printStackTrace(); }
@@ -138,6 +148,17 @@ public class ClanManager {
                     var spot = new BuildingSpot(new Location(world, x+0.5, y, z+0.5));
                     String npc = clansCfg.getString(p+".npc", null);
                     if (npc != null) try { spot.setNpcUuid(java.util.UUID.fromString(npc)); } catch (Exception ignored) {}
+                    spot.setFarmTypeId(clansCfg.getString(p+".farm_type", null));
+                    spot.setSchematicName(clansCfg.getString(p+".schematic", null));
+                    if (clansCfg.isConfigurationSection(p+".chest")) {
+                        String cw = clansCfg.getString(p+".chest.world", w);
+                        var chestWorld = Bukkit.getWorld(cw);
+                        int cx = clansCfg.getInt(p+".chest.x");
+                        int cy = clansCfg.getInt(p+".chest.y");
+                        int cz = clansCfg.getInt(p+".chest.z");
+                        spot.setFarmChestLocation(new Location(chestWorld, cx + 0.5, cy, cz + 0.5));
+                    }
+                    spot.setResourcePreference(clansCfg.getString(p+".resource", null));
                     c.getSpots().add(spot);
                 }
             }

@@ -96,7 +96,7 @@ public class ClanMenuCommand implements CommandExecutor {
             var opt = plugin.clans().getClanByPlayer(p.getUniqueId());
             if (opt.isEmpty()) { p.sendMessage(ChatColor.RED + "Vous n'êtes dans aucun clan."); return true; }
             Clan clan = opt.get();
-            new com.outlaw.clans.ui.ClanMenuUI(plugin).openFor(p, clan);
+            plugin.menuUI().openFor(p, clan);
             return true;
         }
         p.sendMessage(ChatColor.YELLOW + "Usage: /clan menu | /clan show territory | /clan currency | /clan money ... | /clan terraform");

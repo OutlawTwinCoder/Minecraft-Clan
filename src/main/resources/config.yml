@@ -5,11 +5,19 @@ territory:
   world: "world"
 
 building:
-  spots: 5
+  spots: 6
   plot_size: 35
   edge_margin: 12
   paste_y_offset: 1     # +1 bloc
   min_spacing: 40
+  fence:
+    enabled: true
+    material: "OAK_FENCE"
+    segment_length: 6
+    gap_length: 6
+    height: 1
+    offset: 1
+    y_offset: 1
   center_schematic:
     enabled: true
     file: "ClanCenter.schem"
@@ -35,6 +43,50 @@ schematics:
     - "ecosmp4.schem"
     - "ecosmp3.schem"
     - "ClanCenter.schem"
+
+resource_farms:
+  payout_interval_ticks: 18000   # 15 minutes
+  chest_item:
+    name: "&6Coffre de récolte - {type}"
+    lore:
+      - "&7Placez-le dans votre territoire pour relier {type}."
+      - "&7Il recevra les ressources périodiquement."
+  types:
+    miner:
+      name: "&eFerme Minier"
+      icon: "IRON_PICKAXE"
+      description:
+        - "&7Mine automatique pour vos ressources métalliques."
+      schematics:
+        - "FermeMinier_T1.schem"
+        - "FermeMinier_T2.schem"
+      outputs:
+        IRON_INGOT: 24
+        RAW_GOLD: 12
+        COAL: 32
+    lumberjack:
+      name: "&6Ferme Bûcheron"
+      icon: "IRON_AXE"
+      description:
+        - "&7Abat périodiquement du bois raffiné."
+      schematics:
+        - "FermeBucheron_T1.schem"
+      outputs:
+        OAK_LOG: 32
+        SPRUCE_LOG: 32
+        STICK: 48
+    farmer:
+      name: "&aFerme Agricole"
+      icon: "IRON_HOE"
+      description:
+        - "&7Culture automatisée pour nourrir le clan."
+      schematics:
+        - "FermeAgricole_T1.schem"
+        - "FermeAgricole_T2.schem"
+      outputs:
+        WHEAT: 48
+        POTATO: 48
+        CARROT: 48
 
 terraform:
   enabled: true
