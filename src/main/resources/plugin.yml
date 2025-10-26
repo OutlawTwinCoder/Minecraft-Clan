@@ -1,0 +1,48 @@
+name: OutlawClans
+main: com.outlaw.clans.OutlawClansPlugin
+version: 0.3.8
+api-version: '1.21'
+author: Outlaw TwinCoder
+softdepend: [WorldEdit]
+commands:
+  create:
+    description: Commandes de création (clan, npc)
+    usage: /create clan <name> | /create clan npc
+    aliases: [creer]
+    permission: outlawclans.create
+  clan:
+    description: Ouvre le menu du clan et outils admin
+    usage: /clan menu | /clan show territory | /clan currency | /clan money | /clan terraform
+    aliases: [clans]
+    permission: outlawclans.use
+  show:
+    description: Affiche des éléments (territoire)
+    usage: /show clan territoire
+    permission: outlawclans.use
+  createclancost:
+    description: Définit le coût de création d'un clan
+    usage: /createclancost <amount>
+    permission: outlawclans.admin
+  clanterritorycost:
+    description: Définit le coût d'achat du territoire
+    usage: /clanterritorycost <amount>
+    permission: outlawclans.admin
+  deleteclan:
+    description: Supprime votre clan (leader uniquement) — nécessite /deleteclan confirm
+    usage: /deleteclan confirm
+    permission: outlawclans.use
+  leaveclan:
+    description: Quitte votre clan — nécessite /leaveclan confirm
+    usage: /leaveclan confirm
+    permission: outlawclans.use
+permissions:
+  outlawclans.use:
+    default: true
+  outlawclans.create:
+    default: true
+  outlawclans.admin:
+    default: op
+  outlawclan.use:
+    default: true
+  outlawclan.admin:
+    default: op

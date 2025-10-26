@@ -1,0 +1,58 @@
+# OutlawClans configuration
+territory:
+  price: 0
+  radius: 75           # 150x150
+  world: "world"
+
+building:
+  spots: 5
+  plot_size: 35
+  edge_margin: 12
+  paste_y_offset: 1     # +1 bloc
+  min_spacing: 40
+  center_schematic:
+    enabled: true
+    file: "ClanCenter.schem"
+    extra_delay_ticks: 40
+    lectern_radius: 4
+
+ui:
+  show_duration_seconds: 30
+
+economy:
+  mode: "MONEY"         # MONEY ou ITEM
+  item_type: "DIAMOND"
+  money:
+    create_clan_cost: 500
+    territory_cost: 1500
+  item:
+    create_clan_cost: 500
+    territory_cost: 1500
+
+schematics:
+  require_whitelist: true
+  whitelist:
+    - "ecosmp4.schem"
+    - "ecosmp3.schem"
+    - "ClanCenter.schem"
+
+terraform:
+  enabled: true
+  full_territory: true
+  surface_top_material: "GRASS_BLOCK"
+  platform_per_plot: false
+  thickness: 10
+  material: "DIRT"
+  clear_above: 24
+  blocks_per_tick: 1500
+  spawn_npc_delay_ticks: 120
+  kill_entities: true
+
+# Lissage des bords du territoire (évite le grand mur vertical)
+feather:
+  enabled: true
+  width: 20                       # largeur de la zone de blend autour du 150x150
+  top_material: "GRASS_BLOCK"
+  foundation_material: "DIRT"
+  extra_depth_below: 20           # remplit 20 blocs plus bas que l'épaisseur
+  ignore_foliage: true            # calcule la hauteur naturelle en ignorant feuilles/troncs/décors
