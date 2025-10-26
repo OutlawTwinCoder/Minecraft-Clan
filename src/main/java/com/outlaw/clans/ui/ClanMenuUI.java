@@ -49,7 +49,6 @@ public class ClanMenuUI {
     private final ItemStack filler;
 
     public ClanMenuUI(OutlawClansPlugin plugin) {
-        this.plugin = plugin;
         this.plotKey = new NamespacedKey(plugin, Keys.CLAN_MENU_PLOT);
         this.actionKey = new NamespacedKey(plugin, Keys.CLAN_MENU_ACTION);
         this.typeKey = new NamespacedKey(plugin, Keys.CLAN_MENU_TYPE);
