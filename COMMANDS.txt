@@ -1,0 +1,13 @@
+# OutlawClans — Commandes
+
+/create clan <NomClan>
+/create clan npc
+/clan menu
+/clan show territory     | /show clan territoire
+/clan currency money     | /clan currency <ITEM_NAME>
+/createclancost <amount>
+/clanterritorycost <amount>
+/clan money get|set <player> <amount>|give <player> <amount>
+/deleteclan confirm
+/leaveclan confirm
+/clan terraform
