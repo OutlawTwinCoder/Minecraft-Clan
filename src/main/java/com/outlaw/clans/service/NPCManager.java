@@ -37,6 +37,7 @@ public class NPCManager implements Listener {
     private final NamespacedKey npcKey;
     private final NamespacedKey buildIndexKey;
     private final NamespacedKey clanMenuPlotKey;
+    private final NamespacedKey clanMenuActionKey;
     private final Map<UUID, NpcType> npcTypes = new HashMap<>();
     private final Map<UUID, List<UUID>> activeDisplays = new HashMap<>();
     private final Map<UUID, Selection> selections = new HashMap<>();
@@ -46,6 +47,7 @@ public class NPCManager implements Listener {
         this.npcKey = new NamespacedKey(plugin, "npc-type");
         this.buildIndexKey = new NamespacedKey(plugin, "build-index");
         this.clanMenuPlotKey = new NamespacedKey(plugin, Keys.CLAN_MENU_PLOT);
+        this.clanMenuActionKey = new NamespacedKey(plugin, Keys.CLAN_MENU_ACTION);
     }
 
     public Villager spawnTerritoryMerchant(Location loc) {
@@ -214,9 +216,40 @@ public class NPCManager implements Listener {
             if (clicked == null) return;
             ItemMeta meta = clicked.getItemMeta();
             if (meta == null) return;
-            if (!meta.getPersistentDataContainer().has(clanMenuPlotKey, PersistentDataType.INTEGER)) return;
-            int plotIndex = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
-            openSchematicShop(p, plotIndex);
+            var container = meta.getPersistentDataContainer();
+            if (container.has(clanMenuActionKey, PersistentDataType.STRING)) {
+                String action = container.get(clanMenuActionKey, PersistentDataType.STRING);
+                handleClanMenuAction(p, action);
+                return;
+            }
+            if (!container.has(clanMenuPlotKey, PersistentDataType.INTEGER)) return;
+            Integer plotIndex = container.get(clanMenuPlotKey, PersistentDataType.INTEGER);
+            if (plotIndex != null) {
+                openSchematicShop(p, plotIndex);
+            }
+        }
+    }
+
+    private void handleClanMenuAction(Player player, String action) {
+        if (action == null) {
+            return;
+        }
+
+        switch (action) {
+            case "close" -> player.closeInventory();
+            case "home", "members", "plots" -> {
+                var optClan = plugin.clans().getClanByPlayer(player.getUniqueId());
+                if (optClan.isEmpty()) {
+                    player.closeInventory();
+                    return;
+                }
+                Clan clan = optClan.get();
+                switch (action) {
+                    case "home" -> plugin.menuUI().openHome(player, clan);
+                    case "members" -> plugin.menuUI().openMembers(player, clan);
+                    case "plots" -> plugin.menuUI().openPlots(player, clan);
+                }
+            }
         }
     }
 
