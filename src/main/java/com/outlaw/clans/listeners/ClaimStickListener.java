@@ -13,6 +13,8 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.io.File;
+
 public class ClaimStickListener implements Listener {
 
     private final OutlawClansPlugin plugin;
@@ -65,11 +67,14 @@ public class ClaimStickListener implements Listener {
         plugin.clans().setTerritory(clan, t, bases);
         p.sendMessage(ChatColor.GREEN + "Centre de territoire défini. Rayon: " + r + " (≈" + (r*2) + "x" + (r*2) + ").");
 
-        if (plugin.getConfig().getBoolean("terraform.full_territory", true)) {
-            int thickness  = plugin.getConfig().getInt("terraform.thickness", 10);
+        int thickness  = plugin.getConfig().getInt("terraform.thickness", 10);
+        int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
+        int perTick = plugin.getConfig().getInt("terraform.blocks_per_tick", 1500);
+        boolean terraformFull = plugin.getConfig().getBoolean("terraform.full_territory", true);
+
+        if (terraformFull) {
             org.bukkit.Material topMat = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.surface_top_material","GRASS_BLOCK").toUpperCase());
             org.bukkit.Material foundation = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.material","DIRT").toUpperCase());
-            int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
             int r2 = t.getRadius();
             p.sendMessage(ChatColor.GRAY + "Terraforming du claim lancé (" + (r2*2) + "x" + (r2*2) + ").");
             org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -106,6 +111,33 @@ public class ClaimStickListener implements Listener {
                 spot.setNpcUuid(villager.getUniqueId());
             }
         }, delay);
+
+        if (plugin.getConfig().getBoolean("building.center_schematic.enabled", true)) {
+            String fileName = plugin.getConfig().getString("building.center_schematic.file", "ClanCenter.schem");
+            if (fileName != null && !fileName.trim().isEmpty()) {
+                long wait = plugin.getConfig().getInt("building.center_schematic.extra_delay_ticks", 40);
+                if (terraformFull) {
+                    int size = t.getRadius() * 2 + 1;
+                    wait += plugin.terraform().estimateTicksForPlatform(size, thickness, clearAbove, perTick);
+                }
+                long delayTicks = Math.max(0, wait);
+                org.bukkit.Location center = new org.bukkit.Location(w, t.getCenterX() + 0.5, t.getCenterY(), t.getCenterZ() + 0.5);
+                p.sendMessage(ChatColor.GRAY + "Construction du centre du clan programmée (" + fileName + ").");
+                org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    File dir = new File(org.bukkit.Bukkit.getPluginsFolder(), "WorldEdit/schematics");
+                    File file = new File(dir, fileName);
+                    if (!file.exists()) {
+                        p.sendMessage(ChatColor.RED + "Fichier central introuvable: " + fileName);
+                        return;
+                    }
+                    if (!plugin.schematics().paste(file, center)) {
+                        p.sendMessage(ChatColor.RED + "Erreur WorldEdit pendant le collage du centre.");
+                    } else {
+                        p.sendMessage(ChatColor.GREEN + "Centre de clan collé: " + fileName + ".");
+                    }
+                }, delayTicks);
+            }
+        }
 
         var stack = e.getItem(); stack.setAmount(stack.getAmount() - 1);
     }
