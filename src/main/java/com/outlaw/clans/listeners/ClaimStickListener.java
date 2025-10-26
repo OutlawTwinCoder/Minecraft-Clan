@@ -149,7 +149,18 @@ public class ClaimStickListener implements Listener {
             }
         }
 
-        var stack = e.getItem(); stack.setAmount(stack.getAmount() - 1);
+        var stack = e.getItem();
+        if (stack != null) {
+            if (stack.getAmount() <= 1) {
+                if (e.getHand() == org.bukkit.inventory.EquipmentSlot.HAND) {
+                    p.getInventory().setItemInMainHand(null);
+                } else if (e.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) {
+                    p.getInventory().setItemInOffHand(null);
+                }
+            } else {
+                stack.setAmount(stack.getAmount() - 1);
+            }
+        }
     }
 
     private void placePlotSign(Location loc, int dx, int dz, int index) {
