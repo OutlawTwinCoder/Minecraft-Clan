@@ -10,6 +10,11 @@ building:
   edge_margin: 12
   paste_y_offset: 1     # +1 bloc
   min_spacing: 40
+  center_schematic:
+    enabled: true
+    file: "ClanCenter.schem"
+    extra_delay_ticks: 40
+    lectern_radius: 4
 
 ui:
   show_duration_seconds: 30
@@ -29,6 +34,7 @@ schematics:
   whitelist:
     - "ecosmp4.schem"
     - "ecosmp3.schem"
+    - "ClanCenter.schem"
 
 terraform:
   enabled: true

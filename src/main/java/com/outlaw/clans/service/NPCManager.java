@@ -4,6 +4,7 @@ import com.outlaw.clans.OutlawClansPlugin;
 import com.outlaw.clans.model.BuildingSpot;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.util.Keys;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -35,6 +36,7 @@ public class NPCManager implements Listener {
     private final OutlawClansPlugin plugin;
     private final NamespacedKey npcKey;
     private final NamespacedKey buildIndexKey;
+    private final NamespacedKey clanMenuPlotKey;
     private final Map<UUID, NpcType> npcTypes = new HashMap<>();
     private final Map<UUID, List<UUID>> activeDisplays = new HashMap<>();
     private final Map<UUID, Selection> selections = new HashMap<>();
@@ -43,6 +45,7 @@ public class NPCManager implements Listener {
         this.plugin = plugin;
         this.npcKey = new NamespacedKey(plugin, "npc-type");
         this.buildIndexKey = new NamespacedKey(plugin, "build-index");
+        this.clanMenuPlotKey = new NamespacedKey(plugin, Keys.CLAN_MENU_PLOT);
     }
 
     public Villager spawnTerritoryMerchant(Location loc) {
@@ -113,7 +116,7 @@ public class NPCManager implements Listener {
         p.openInventory(inv);
     }
 
-    private void openSchematicShop(Player p, int buildIndex) {
+    public void openSchematicShop(Player p, int buildIndex) {
         Inventory inv = Bukkit.createInventory(p, 54, ChatColor.DARK_AQUA + "Shop Schematics (Plot #" + (buildIndex+1) + ")");
         File dir = new File(Bukkit.getPluginsFolder(), "WorldEdit/schematics");
         List<String> white = plugin.getConfig().getStringList("schematics.whitelist");
@@ -203,6 +206,17 @@ public class NPCManager implements Listener {
                 openSchematicShop(p, plotIndex);
                 return;
             }
+        }
+
+        if (ChatColor.stripColor(title).startsWith("Clan:")) {
+            e.setCancelled(true);
+            ItemStack clicked = e.getCurrentItem();
+            if (clicked == null) return;
+            ItemMeta meta = clicked.getItemMeta();
+            if (meta == null) return;
+            if (!meta.getPersistentDataContainer().has(clanMenuPlotKey, PersistentDataType.INTEGER)) return;
+            int plotIndex = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+            openSchematicShop(p, plotIndex);
         }
     }
 

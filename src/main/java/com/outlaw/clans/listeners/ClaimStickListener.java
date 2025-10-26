@@ -3,8 +3,10 @@ package com.outlaw.clans.listeners;
 import com.outlaw.clans.OutlawClansPlugin;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.util.Keys;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,13 +14,22 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.WallSign;
+
+import java.io.File;
 
 public class ClaimStickListener implements Listener {
 
     private final OutlawClansPlugin plugin;
     private final NamespacedKey key;
+    private final NamespacedKey plotSignKey;
 
-    public ClaimStickListener(OutlawClansPlugin plugin) { this.plugin = plugin; this.key = new NamespacedKey(plugin, "claim-stick"); }
+    public ClaimStickListener(OutlawClansPlugin plugin) {
+        this.plugin = plugin;
+        this.key = new NamespacedKey(plugin, "claim-stick");
+        this.plotSignKey = new NamespacedKey(plugin, Keys.PLOT_SIGN);
+    }
 
     @EventHandler
     public void onUse(PlayerInteractEvent e) {
@@ -65,11 +76,14 @@ public class ClaimStickListener implements Listener {
         plugin.clans().setTerritory(clan, t, bases);
         p.sendMessage(ChatColor.GREEN + "Centre de territoire défini. Rayon: " + r + " (≈" + (r*2) + "x" + (r*2) + ").");
 
-        if (plugin.getConfig().getBoolean("terraform.full_territory", true)) {
-            int thickness  = plugin.getConfig().getInt("terraform.thickness", 10);
+        int thickness  = plugin.getConfig().getInt("terraform.thickness", 10);
+        int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
+        int perTick = plugin.getConfig().getInt("terraform.blocks_per_tick", 1500);
+        boolean terraformFull = plugin.getConfig().getBoolean("terraform.full_territory", true);
+
+        if (terraformFull) {
             org.bukkit.Material topMat = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.surface_top_material","GRASS_BLOCK").toUpperCase());
             org.bukkit.Material foundation = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.material","DIRT").toUpperCase());
-            int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
             int r2 = t.getRadius();
             p.sendMessage(ChatColor.GRAY + "Terraforming du claim lancé (" + (r2*2) + "x" + (r2*2) + ").");
             org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -88,6 +102,8 @@ public class ClaimStickListener implements Listener {
             for (int i = 0; i < clan.getSpots().size(); i++) {
                 var spot = clan.getSpots().get(i);
                 org.bukkit.Location center = spot.getBaseLocation();
+                if (center == null || center.getWorld() == null) continue;
+
                 int phalf = plugin.getConfig().getInt("building.plot_size", 35) / 2;
 
                 int dx = t.getCenterX() - center.getBlockX();
@@ -99,14 +115,87 @@ public class ClaimStickListener implements Listener {
 
                 int cornerX = center.getBlockX() + sx * (phalf - 1);
                 int cornerZ = center.getBlockZ() + sz * (phalf - 1);
-                int cornerY = center.getBlockY();
+                int cornerY = center.getBlockY() + 1;
 
-                org.bukkit.Location corner = new org.bukkit.Location(center.getWorld(), cornerX + 0.5, cornerY + 1.0, cornerZ + 0.5);
-                var villager = plugin.npcs().spawnBuildingNpc(corner, i);
-                spot.setNpcUuid(villager.getUniqueId());
+                org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
+                placePlotSign(signLoc, dx, dz, i);
             }
         }, delay);
 
+        if (plugin.getConfig().getBoolean("building.center_schematic.enabled", true)) {
+            String fileName = plugin.getConfig().getString("building.center_schematic.file", "ClanCenter.schem");
+            if (fileName != null && !fileName.trim().isEmpty()) {
+                long wait = plugin.getConfig().getInt("building.center_schematic.extra_delay_ticks", 40);
+                if (terraformFull) {
+                    int size = t.getRadius() * 2 + 1;
+                    wait += plugin.terraform().estimateTicksForPlatform(size, thickness, clearAbove, perTick);
+                }
+                long delayTicks = Math.max(0, wait);
+                org.bukkit.Location center = new org.bukkit.Location(w, t.getCenterX() + 0.5, t.getCenterY(), t.getCenterZ() + 0.5);
+                p.sendMessage(ChatColor.GRAY + "Construction du centre du clan programmée (" + fileName + ").");
+                org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    File dir = new File(org.bukkit.Bukkit.getPluginsFolder(), "WorldEdit/schematics");
+                    File file = new File(dir, fileName);
+                    if (!file.exists()) {
+                        p.sendMessage(ChatColor.RED + "Fichier central introuvable: " + fileName);
+                        return;
+                    }
+                    if (!plugin.schematics().paste(file, center)) {
+                        p.sendMessage(ChatColor.RED + "Erreur WorldEdit pendant le collage du centre.");
+                    } else {
+                        p.sendMessage(ChatColor.GREEN + "Centre de clan collé: " + fileName + ".");
+                    }
+                }, delayTicks);
+            }
+        }
+
         var stack = e.getItem(); stack.setAmount(stack.getAmount() - 1);
+    }
+
+    private void placePlotSign(Location loc, int dx, int dz, int index) {
+        if (loc.getWorld() == null) return;
+        Block block = loc.getBlock();
+        Block above = loc.clone().add(0, 1, 0).getBlock();
+        above.setType(Material.AIR, false);
+
+        block.setType(Material.OAK_SIGN, false);
+        var state = block.getState();
+        if (!(state instanceof Sign signState)) return;
+
+        signState.setLine(0, ChatColor.AQUA + "Plot #" + (index + 1));
+        signState.setLine(1, ChatColor.YELLOW + "Clique pour");
+        signState.setLine(2, ChatColor.YELLOW + "les plans");
+        signState.setLine(3, ChatColor.GRAY + "Rotation incluse");
+        signState.getPersistentDataContainer().set(plotSignKey, PersistentDataType.INTEGER, index);
+        signState.update(true, false);
+
+        orientSignTowardsCenter(block, dx, dz);
+    }
+
+    private void orientSignTowardsCenter(Block block, int dx, int dz) {
+        BlockData data = block.getBlockData();
+        if (data instanceof org.bukkit.block.data.type.Sign signData) {
+            double yaw = Math.toDegrees(Math.atan2(-dx, dz));
+            int ordinal = Math.floorMod((int)Math.round(yaw / 22.5), org.bukkit.Rotation.values().length);
+            signData.setRotation(org.bukkit.Rotation.values()[ordinal]);
+            block.setBlockData(signData, false);
+        } else if (data instanceof WallSign wall) {
+            BlockFace face = facingFromVector(dx, dz);
+            wall.setFacing(face);
+            block.setBlockData(wall, false);
+        }
+    }
+
+    private BlockFace facingFromVector(int dx, int dz) {
+        if (Math.abs(dx) > Math.abs(dz)) {
+            return dx > 0 ? BlockFace.EAST : BlockFace.WEST;
+        }
+        if (Math.abs(dz) > Math.abs(dx)) {
+            return dz > 0 ? BlockFace.SOUTH : BlockFace.NORTH;
+        }
+        if (dx >= 0 && dz >= 0) return BlockFace.SOUTH_EAST;
+        if (dx >= 0) return BlockFace.NORTH_EAST;
+        if (dz >= 0) return BlockFace.SOUTH_WEST;
+        return BlockFace.NORTH_WEST;
     }
 }

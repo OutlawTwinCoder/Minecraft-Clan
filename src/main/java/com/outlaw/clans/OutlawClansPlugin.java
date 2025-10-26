@@ -1,6 +1,7 @@
 package com.outlaw.clans;
 
 import com.outlaw.clans.listeners.ClaimStickListener;
+import com.outlaw.clans.listeners.ClanCenterInteractionListener;
 import com.outlaw.clans.service.ClanManager;
 import com.outlaw.clans.service.NPCManager;
 import com.outlaw.clans.service.SchematicManager;
@@ -52,6 +53,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         getCommand("leaveclan").setExecutor(new LeaveClanCommand(this));
 
         Bukkit.getPluginManager().registerEvents(new ClaimStickListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new ClanCenterInteractionListener(this), this);
         Bukkit.getPluginManager().registerEvents(npcManager, this);
         getLogger().info("OutlawClans v0.3.8 enabled.");
     }

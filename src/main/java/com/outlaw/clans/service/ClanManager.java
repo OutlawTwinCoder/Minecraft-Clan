@@ -29,6 +29,14 @@ public class ClanManager {
         return id == null ? Optional.empty() : Optional.ofNullable(clans.get(id));
     }
 
+    public Optional<Clan> getClanByLocation(org.bukkit.Location location) {
+        if (location == null || location.getWorld() == null) return Optional.empty();
+        for (Clan clan : clans.values()) {
+            if (clan.isInside(location)) return Optional.of(clan);
+        }
+        return Optional.empty();
+    }
+
     public Clan createClan(String name, java.util.UUID leader) {
         java.util.UUID id = java.util.UUID.randomUUID();
         Clan c = new Clan(id, name, leader);
