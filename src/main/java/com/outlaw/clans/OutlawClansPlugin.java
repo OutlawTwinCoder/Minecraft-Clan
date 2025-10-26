@@ -7,6 +7,7 @@ import com.outlaw.clans.service.NPCManager;
 import com.outlaw.clans.service.SchematicManager;
 import com.outlaw.clans.service.EconomyService;
 import com.outlaw.clans.service.TerraformService;
+import com.outlaw.clans.ui.ClanMenuUI;
 import com.outlaw.clans.commands.CreateClanCommand;
 import com.outlaw.clans.commands.ClanMenuCommand;
 import com.outlaw.clans.commands.ShowTerritoryCommand;
@@ -25,6 +26,7 @@ public class OutlawClansPlugin extends JavaPlugin {
     private com.outlaw.clans.service.SchematicManager schematicManager;
     private com.outlaw.clans.service.EconomyService economyService;
     private com.outlaw.clans.service.TerraformService terraformService;
+    private ClanMenuUI clanMenuUI;
 
     public static OutlawClansPlugin get() { return instance; }
     public ClanManager clans() { return clanManager; }
@@ -32,6 +34,7 @@ public class OutlawClansPlugin extends JavaPlugin {
     public SchematicManager schematics() { return schematicManager; }
     public EconomyService economy() { return economyService; }
     public TerraformService terraform() { return terraformService; }
+    public ClanMenuUI menuUI() { return clanMenuUI; }
 
     @Override
     public void onEnable() {
@@ -42,6 +45,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         this.economyService = new EconomyService(this);
         this.terraformService = new TerraformService(this);
         this.npcManager = new NPCManager(this);
+        this.clanMenuUI = new ClanMenuUI(this);
         bootstrapSchematics();
 
         getCommand("create").setExecutor(new CreateClanCommand(this));

@@ -30,7 +30,7 @@ public class ClanCenterInteractionListener implements Listener {
     public ClanCenterInteractionListener(OutlawClansPlugin plugin) {
         this.plugin = plugin;
         this.plotSignKey = new NamespacedKey(plugin, Keys.PLOT_SIGN);
-        this.menuUI = new ClanMenuUI(plugin);
+        this.menuUI = plugin.menuUI();
         this.centerRadius = Math.max(1, plugin.getConfig().getInt("building.center_schematic.lectern_radius", 4));
     }
 
