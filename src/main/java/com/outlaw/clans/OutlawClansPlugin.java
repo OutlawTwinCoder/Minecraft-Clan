@@ -7,6 +7,7 @@ import com.outlaw.clans.service.NPCManager;
 import com.outlaw.clans.service.SchematicManager;
 import com.outlaw.clans.service.EconomyService;
 import com.outlaw.clans.service.TerraformService;
+import com.outlaw.clans.service.FarmManager;
 import com.outlaw.clans.ui.ClanMenuUI;
 import com.outlaw.clans.commands.CreateClanCommand;
 import com.outlaw.clans.commands.ClanMenuCommand;
@@ -26,6 +27,7 @@ public class OutlawClansPlugin extends JavaPlugin {
     private com.outlaw.clans.service.SchematicManager schematicManager;
     private com.outlaw.clans.service.EconomyService economyService;
     private com.outlaw.clans.service.TerraformService terraformService;
+    private com.outlaw.clans.service.FarmManager farmManager;
     private ClanMenuUI clanMenuUI;
 
     public static OutlawClansPlugin get() { return instance; }
@@ -35,6 +37,7 @@ public class OutlawClansPlugin extends JavaPlugin {
     public EconomyService economy() { return economyService; }
     public TerraformService terraform() { return terraformService; }
     public ClanMenuUI menuUI() { return clanMenuUI; }
+    public FarmManager farms() { return farmManager; }
 
     @Override
     public void onEnable() {
@@ -46,6 +49,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         this.terraformService = new TerraformService(this);
         this.npcManager = new NPCManager(this);
         this.clanMenuUI = new ClanMenuUI(this);
+        this.farmManager = new FarmManager(this);
         bootstrapSchematics();
 
         getCommand("create").setExecutor(new CreateClanCommand(this));
@@ -59,12 +63,16 @@ public class OutlawClansPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new ClaimStickListener(this), this);
         Bukkit.getPluginManager().registerEvents(new ClanCenterInteractionListener(this), this);
         Bukkit.getPluginManager().registerEvents(npcManager, this);
+        Bukkit.getPluginManager().registerEvents(farmManager, this);
         getLogger().info("OutlawClans v0.3.8 enabled.");
     }
 
     @Override
     public void onDisable() {
         npcManager.despawnAllDisplays();
+        if (farmManager != null) {
+            farmManager.shutdown();
+        }
         clanManager.saveAll();
         getLogger().info("OutlawClans disabled.");
     }

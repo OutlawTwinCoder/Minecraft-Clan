@@ -1,7 +1,6 @@
 package com.outlaw.clans.service;
 
 import com.outlaw.clans.OutlawClansPlugin;
-import com.outlaw.clans.model.BuildingSpot;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.Territory;
 import com.outlaw.clans.util.Keys;
@@ -19,28 +18,22 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.io.File;
 import java.util.*;
 
 public class NPCManager implements Listener {
 
     public enum NpcType { TERRITORY_MERCHANT, BUILD_SPOT }
 
-    static class Selection {
-        String fileName;
-        int plotIndex;
-        int rotation;
-        Selection(String f, int p, int r){fileName=f;plotIndex=p;rotation=r;}
-    }
-
     private final OutlawClansPlugin plugin;
     private final NamespacedKey npcKey;
     private final NamespacedKey buildIndexKey;
     private final NamespacedKey clanMenuPlotKey;
     private final NamespacedKey clanMenuActionKey;
+    private final NamespacedKey clanMenuTypeKey;
+    private final NamespacedKey clanMenuResourceKey;
+    private final NamespacedKey clanMenuSchematicKey;
     private final Map<UUID, NpcType> npcTypes = new HashMap<>();
     private final Map<UUID, List<UUID>> activeDisplays = new HashMap<>();
-    private final Map<UUID, Selection> selections = new HashMap<>();
 
     public NPCManager(OutlawClansPlugin plugin) {
         this.plugin = plugin;
@@ -48,6 +41,9 @@ public class NPCManager implements Listener {
         this.buildIndexKey = new NamespacedKey(plugin, "build-index");
         this.clanMenuPlotKey = new NamespacedKey(plugin, Keys.CLAN_MENU_PLOT);
         this.clanMenuActionKey = new NamespacedKey(plugin, Keys.CLAN_MENU_ACTION);
+        this.clanMenuTypeKey = new NamespacedKey(plugin, Keys.CLAN_MENU_TYPE);
+        this.clanMenuResourceKey = new NamespacedKey(plugin, Keys.CLAN_MENU_RESOURCE);
+        this.clanMenuSchematicKey = new NamespacedKey(plugin, Keys.CLAN_MENU_SCHEMATIC);
     }
 
     public Villager spawnTerritoryMerchant(Location loc) {
@@ -67,7 +63,7 @@ public class NPCManager implements Listener {
         Villager v = spawn.getWorld().spawn(spawn, Villager.class, CreatureSpawnEvent.SpawnReason.CUSTOM);
         v.setAI(false); v.setAdult(); v.setProfession(Villager.Profession.NONE);
         v.setInvulnerable(true); v.setPersistent(true);
-        v.setCustomName(ChatColor.AQUA + "Plot #" + (index+1));
+        v.setCustomName(ChatColor.AQUA + "Terrain #" + (index+1));
         v.setCustomNameVisible(true);
         v.getPersistentDataContainer().set(npcKey, PersistentDataType.STRING, NpcType.BUILD_SPOT.name());
         v.getPersistentDataContainer().set(buildIndexKey, PersistentDataType.INTEGER, index);
@@ -88,7 +84,13 @@ public class NPCManager implements Listener {
             case TERRITORY_MERCHANT -> openTerritoryShop(p);
             case BUILD_SPOT -> {
                 Integer idx = v.getPersistentDataContainer().get(buildIndexKey, PersistentDataType.INTEGER);
-                openSchematicShop(p, idx == null ? 0 : idx);
+                int terrainIndex = idx == null ? 0 : idx;
+                var optClan = plugin.clans().getClanByPlayer(p.getUniqueId());
+                if (optClan.isEmpty()) {
+                    p.sendMessage(ChatColor.RED + "Vous n'êtes dans aucun clan.");
+                    return;
+                }
+                plugin.menuUI().openTerrainSettings(p, optClan.get(), terrainIndex);
             }
         }
     }
@@ -115,47 +117,6 @@ public class NPCManager implements Listener {
         int price = OutlawClansPlugin.get().economy().costTerritory();
         inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire", "&7Prix: &e" + price));
         inv.setItem(15, named(Material.BARRIER, "&cFermer"));
-        p.openInventory(inv);
-    }
-
-    public void openSchematicShop(Player p, int buildIndex) {
-        Inventory inv = Bukkit.createInventory(p, 54, ChatColor.DARK_AQUA + "Shop Schematics (Plot #" + (buildIndex+1) + ")");
-        File dir = new File(Bukkit.getPluginsFolder(), "WorldEdit/schematics");
-        List<String> white = plugin.getConfig().getStringList("schematics.whitelist");
-        boolean require = plugin.getConfig().getBoolean("schematics.require_whitelist", true);
-
-        List<File> files = new ArrayList<>();
-        if (require) {
-            for (String n : white) {
-                File f = new File(dir, n);
-                if (f.exists()) files.add(f);
-            }
-            if (files.isEmpty()) {
-                inv.setItem(22, named(Material.BARRIER, "&cSchematic manquante", "&7Placez " + String.join(", ", white) + " dans WorldEdit/schematics"));
-                p.openInventory(inv); return;
-            }
-        } else {
-            File[] all = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".schem") || name.toLowerCase().endsWith(".schematic"));
-            if (all != null) { java.util.Arrays.sort(all); files.addAll(java.util.Arrays.asList(all)); }
-            if (files.isEmpty()) {
-                inv.setItem(22, named(Material.BARRIER, "&cAucun schematic trouvé", "&7Placez des .schem dans plugins/WorldEdit/schematics"));
-                p.openInventory(inv); return;
-            }
-        }
-
-        int slot = 0;
-        for (File f : files) {
-            if (slot >= inv.getSize()-1) break;
-            String name = f.getName();
-            inv.setItem(slot++, named(Material.PAPER, "&f" + name, "&7Clique pour construire"));
-        }
-
-        inv.setItem(45, named(Material.ARROW, "&e\u25C0 Rotation -90\u00B0", "&7Tourne et reconstruit"));
-        inv.setItem(53, named(Material.ARROW, "&eRotation +90\u00B0 \u25B6", "&7Tourne et reconstruit"));
-        Selection sel = selections.get(p.getUniqueId());
-        if (sel != null && sel.plotIndex == buildIndex) {
-            inv.setItem(49, named(Material.COMPASS, "&bActuel:", "&7"+sel.fileName, "&7Rotation: "+(sel.rotation*90)+"\u00B0"));
-        }
         p.openInventory(inv);
     }
 
@@ -186,30 +147,6 @@ public class NPCManager implements Listener {
             return;
         }
 
-        if (ChatColor.stripColor(title).startsWith("Shop Schematics (Plot #")) {
-            e.setCancelled(true);
-            ItemStack clicked = e.getCurrentItem();
-            if (clicked == null) return;
-            int plotIndex = parsePlotIndexFromTitle(title);
-
-            if (clicked.getType() == Material.PAPER) {
-                String fileName = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-                selections.put(p.getUniqueId(), new Selection(fileName, plotIndex, 0));
-                applyBuild(p, plotIndex, fileName, 0);
-                openSchematicShop(p, plotIndex);
-                return;
-            }
-            if (clicked.getType() == Material.ARROW) {
-                Selection sel = selections.get(p.getUniqueId());
-                if (sel == null || sel.plotIndex != plotIndex) { p.sendMessage(ChatColor.RED + "Sélectionnez d'abord un schematic."); return; }
-                String dn = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-                if (dn.contains("-90")) sel.rotation = ((sel.rotation - 1) % 4 + 4) % 4; else sel.rotation = (sel.rotation + 1) % 4;
-                applyBuild(p, sel.plotIndex, sel.fileName, sel.rotation);
-                openSchematicShop(p, plotIndex);
-                return;
-            }
-        }
-
         if (ChatColor.stripColor(title).startsWith("Clan:")) {
             e.setCancelled(true);
             ItemStack clicked = e.getCurrentItem();
@@ -219,25 +156,20 @@ public class NPCManager implements Listener {
             var container = meta.getPersistentDataContainer();
             if (container.has(clanMenuActionKey, PersistentDataType.STRING)) {
                 String action = container.get(clanMenuActionKey, PersistentDataType.STRING);
-                handleClanMenuAction(p, action);
-                return;
-            }
-            if (!container.has(clanMenuPlotKey, PersistentDataType.INTEGER)) return;
-            Integer plotIndex = container.get(clanMenuPlotKey, PersistentDataType.INTEGER);
-            if (plotIndex != null) {
-                openSchematicShop(p, plotIndex);
+                handleClanMenuAction(p, meta, action);
             }
         }
     }
 
-    private void handleClanMenuAction(Player player, String action) {
+    private void handleClanMenuAction(Player player, ItemMeta meta, String action) {
         if (action == null) {
             return;
         }
 
         switch (action) {
             case "close" -> player.closeInventory();
-            case "home", "members", "plots" -> {
+            case "home", "members", "terrains", "terrain-settings", "terrain-buildings", "terrain-resources",
+                    "terrain-select-type", "terrain-select-schematic", "terrain-set-resource" -> {
                 var optClan = plugin.clans().getClanByPlayer(player.getUniqueId());
                 if (optClan.isEmpty()) {
                     player.closeInventory();
@@ -247,47 +179,75 @@ public class NPCManager implements Listener {
                 switch (action) {
                     case "home" -> plugin.menuUI().openHome(player, clan);
                     case "members" -> plugin.menuUI().openMembers(player, clan);
-                    case "plots" -> plugin.menuUI().openPlots(player, clan);
+                    case "terrains" -> plugin.menuUI().openTerrains(player, clan);
+                    case "terrain-settings" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        plugin.menuUI().openTerrainSettings(player, clan, idx == null ? 0 : idx);
+                    }
+                    case "terrain-buildings" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        plugin.menuUI().openBuildingTypes(player, clan, idx == null ? 0 : idx);
+                    }
+                    case "terrain-resources" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        plugin.menuUI().openResourcePreferences(player, clan, idx == null ? 0 : idx);
+                    }
+                    case "terrain-select-type" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        String typeId = meta.getPersistentDataContainer().get(clanMenuTypeKey, PersistentDataType.STRING);
+                        var optType = plugin.farms().getType(typeId);
+                        if (optType.isEmpty()) {
+                            player.sendMessage(ChatColor.RED + "Type de bâtiment inconnu.");
+                            return;
+                        }
+                        plugin.menuUI().openBuildingSchematics(player, clan, idx == null ? 0 : idx, optType.get());
+                    }
+                    case "terrain-select-schematic" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        String typeId = meta.getPersistentDataContainer().get(clanMenuTypeKey, PersistentDataType.STRING);
+                        String schematic = meta.getPersistentDataContainer().get(clanMenuSchematicKey, PersistentDataType.STRING);
+                        if (idx == null || typeId == null || schematic == null) {
+                            player.sendMessage(ChatColor.RED + "Données manquantes pour la construction.");
+                            return;
+                        }
+                        var optType = plugin.farms().getType(typeId);
+                        if (optType.isEmpty()) {
+                            player.sendMessage(ChatColor.RED + "Type de bâtiment inconnu.");
+                            return;
+                        }
+                        plugin.farms().buildStructure(player, clan, idx, optType.get(), schematic);
+                        plugin.menuUI().openTerrainSettings(player, clan, idx);
+                    }
+                    case "terrain-set-resource" -> {
+                        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+                        String resource = meta.getPersistentDataContainer().get(clanMenuResourceKey, PersistentDataType.STRING);
+                        if (idx == null || resource == null) {
+                            player.sendMessage(ChatColor.RED + "Sélection invalide.");
+                            return;
+                        }
+                        if (idx < 0 || idx >= clan.getSpots().size()) {
+                            player.sendMessage(ChatColor.RED + "Terrain invalide.");
+                            return;
+                        }
+                        var spot = clan.getSpots().get(idx);
+                        var optType = plugin.farms().getType(spot.getFarmTypeId());
+                        if (optType.isEmpty()) {
+                            player.sendMessage(ChatColor.RED + "Aucun bâtiment configuré pour ce terrain.");
+                            return;
+                        }
+                        Material mat = Material.matchMaterial(resource);
+                        if (mat == null || !optType.get().getOutputs().containsKey(mat)) {
+                            player.sendMessage(ChatColor.RED + "Ressource invalide pour cette ferme.");
+                            return;
+                        }
+                        spot.setResourcePreference(resource);
+                        plugin.clans().saveAll();
+                        player.sendMessage(ChatColor.GREEN + "Préférence mise à jour: " + ChatColor.YELLOW + formatResourceName(resource));
+                        plugin.menuUI().openTerrainSettings(player, clan, idx);
+                    }
                 }
             }
         }
-    }
-
-    private int parsePlotIndexFromTitle(String title) {
-        try {
-            int hash = title.indexOf("#"); int close = title.indexOf(")", hash);
-            String num = title.substring(hash+1, close); return Integer.parseInt(num) - 1;
-        } catch (Exception e) { return 0; }
-    }
-
-    private void applyBuild(Player p, int plotIndex, String fileName, int rotation) {
-        var opt = plugin.clans().getClanByPlayer(p.getUniqueId());
-        if (opt.isEmpty()) { p.sendMessage(ChatColor.RED + "Vous n'êtes dans aucun clan."); return; }
-        Clan clan = opt.get();
-        if (!clan.hasTerritory()) { p.sendMessage(ChatColor.RED + "Aucun territoire défini."); return; }
-        if (plotIndex < 0 || plotIndex >= clan.getSpots().size()) { p.sendMessage(ChatColor.RED + "Plot invalide."); return; }
-        BuildingSpot spot = clan.getSpots().get(plotIndex);
-
-        int size = plugin.getConfig().getInt("building.plot_size", 35);
-        int thickness = plugin.getConfig().getInt("terraform.thickness", 10);
-        int clear = plugin.getConfig().getInt("terraform.clear_above", 24);
-        int perTick = plugin.getConfig().getInt("terraform.blocks_per_tick", 1500);
-        org.bukkit.Material foundation = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.material","DIRT").toUpperCase());
-
-        plugin.terraform().clearPlotEntities(spot.getBaseLocation(), size, thickness, clear);
-        plugin.terraform().buildPlatform(spot.getBaseLocation(), size, thickness, foundation);
-
-        int wait = plugin.terraform().estimateTicksForPlatform(size, thickness, clear, perTick);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            File dir = new File(Bukkit.getPluginsFolder(), "WorldEdit/schematics");
-            File file = new File(dir, fileName);
-            if (!file.exists()) { p.sendMessage(ChatColor.RED + "Fichier introuvable: " + fileName); return; }
-            if (!plugin.schematics().paste(file, spot.getBaseLocation(), rotation)) {
-                p.sendMessage(ChatColor.RED + "Erreur WorldEdit pendant le collage.");
-            } else {
-                p.sendMessage(ChatColor.GREEN + "Construit " + fileName + " (rotation " + (rotation*90) + "°) sur Plot #" + (plotIndex+1));
-            }
-        }, wait);
     }
 
     private void giveClaimStick(Player p) {
@@ -350,4 +310,21 @@ public class NPCManager implements Listener {
         }
     }
     public void despawnAllDisplays() { for (UUID u : new ArrayList<>(activeDisplays.keySet())) despawnDisplaysFor(u); }
+
+    private String formatResourceName(String resource) {
+        if (resource == null) {
+            return "";
+        }
+        Material mat = Material.matchMaterial(resource);
+        String base = mat != null ? mat.name().toLowerCase() : resource.toLowerCase();
+        String[] parts = base.split("_");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(' ');
+        }
+        return builder.toString().trim();
+    }
 }

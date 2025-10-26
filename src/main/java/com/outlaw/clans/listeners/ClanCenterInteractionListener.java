@@ -66,7 +66,7 @@ public class ClanCenterInteractionListener implements Listener {
         }
 
         event.setCancelled(true);
-        plugin.npcs().openSchematicShop(player, index);
+        plugin.menuUI().openTerrainSettings(player, clan, index);
     }
 
     private void handleLectern(PlayerInteractEvent event, Block block) {
