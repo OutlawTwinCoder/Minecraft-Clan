@@ -148,6 +148,11 @@ public class TerraformService {
         }
     }
 
+    private boolean isWaterLike(Material m) {
+        return m == Material.WATER || m == Material.BUBBLE_COLUMN || m == Material.KELP || m == Material.KELP_PLANT
+            || m == Material.SEAGRASS || m == Material.TALL_SEAGRASS;
+    }
+
     public void featherTerritoryEdges(Territory t, int centerY, int thickness, Material topMat, Material foundation, int width) {
         if (t == null || width <= 0) return;
         World w = Bukkit.getWorld(t.getWorldName());
@@ -174,8 +179,22 @@ public class TerraformService {
 
                 int topClear = Math.min(w.getMaxHeight() - 1, Math.max(centerY, naturalY) + clearAbove);
 
-                for (int y = topClear; y >= targetY + 1; y--) q.add(new Change(w.getBlockAt(x,y,z), Material.AIR));
-                for (int y = targetY; y >= bottomY; y--) q.add(new Change(w.getBlockAt(x,y,z), y==targetY ? topMat : foundation));
+                boolean encounteredWater = false;
+                for (int y = topClear; y >= targetY + 1; y--) {
+                    Block block = w.getBlockAt(x, y, z);
+                    if (isWaterLike(block.getType())) {
+                        encounteredWater = true;
+                        break;
+                    }
+                    q.add(new Change(block, Material.AIR));
+                }
+                if (encounteredWater) continue;
+
+                for (int y = targetY; y >= bottomY; y--) {
+                    Block block = w.getBlockAt(x, y, z);
+                    if (isWaterLike(block.getType())) break;
+                    q.add(new Change(block, y == targetY ? topMat : foundation));
+                }
             }
         }
 
