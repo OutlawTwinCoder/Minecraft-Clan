@@ -12,6 +12,8 @@ public final class Keys {
     public static final String CLAN_MENU_ROLE = "clan-menu-role";
     public static final String CLAN_MENU_PERMISSION = "clan-menu-permission";
     public static final String CLAN_MENU_MEMBER = "clan-menu-member";
+    public static final String CLAN_MENU_BANK_ACTION = "clan-menu-bank-action";
+    public static final String CLAN_MENU_BANK_AMOUNT = "clan-menu-bank-amount";
     public static final String FARM_CHEST_CLAN = "farm-chest-clan";
     public static final String FARM_CHEST_TERRAIN = "farm-chest-terrain";
     public static final String FARM_CHEST_TYPE = "farm-chest-type";

@@ -33,7 +33,7 @@ public class CreateClanCommand implements CommandExecutor {
             if (existing.isPresent()) { p.sendMessage(ChatColor.RED + "Vous êtes déjà dans un clan."); return true; }
             if (!plugin.economy().chargeCreate(p)) { p.sendMessage(ChatColor.RED + "Fonds insuffisants."); return true; }
             Clan c = plugin.clans().createClan(name, p.getUniqueId());
-            p.sendMessage(ChatColor.GREEN + "Clan créé: " + ChatColor.AQUA + c.getName() + ChatColor.GRAY + " (-" + plugin.economy().costCreateClan() + (plugin.economy().mode()==com.outlaw.clans.service.EconomyService.Mode.MONEY?"$":" "+plugin.economy().itemType().name()) + ")");
+            p.sendMessage(ChatColor.GREEN + "Clan créé: " + ChatColor.AQUA + c.getName() + ChatColor.GRAY + " (-" + plugin.economy().formatAmount(plugin.economy().costCreateClan()) + ")");
             return true;
         }
         p.sendMessage(ChatColor.YELLOW + "Usage: /create clan <name> | /create clan npc");

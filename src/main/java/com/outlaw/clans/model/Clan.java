@@ -14,6 +14,7 @@ public class Clan {
     private final java.util.Map<String, ClanRole> roles = new java.util.LinkedHashMap<>();
     private final java.util.Map<java.util.UUID, String> memberRoles = new java.util.HashMap<>();
     private String defaultRoleId;
+    private int currencyBalance;
 
     public Clan(java.util.UUID id, String name, java.util.UUID leader) {
         this.id = id; this.name = name; this.leader = leader; this.members.add(leader);
@@ -32,6 +33,8 @@ public class Clan {
     public java.util.Map<java.util.UUID, String> getMemberRoles() { return memberRoles; }
     public String getDefaultRoleId() { return defaultRoleId; }
     public void setDefaultRoleId(String defaultRoleId) { this.defaultRoleId = defaultRoleId; }
+    public int getCurrencyBalance() { return currencyBalance; }
+    public void setCurrencyBalance(int currencyBalance) { this.currencyBalance = Math.max(0, currencyBalance); }
 
     public boolean hasTerritory() { return territory != null; }
     public boolean isMember(java.util.UUID uuid) { return members.contains(uuid); }
@@ -87,6 +90,29 @@ public class Clan {
 
     public boolean canAccessFarmChests(java.util.UUID member) {
         return isLeader(member) || hasPermission(member, ClanRolePermission.ACCESS_FARM_CHEST);
+    }
+
+    public boolean canManageTreasury(java.util.UUID member) {
+        return isLeader(member) || hasPermission(member, ClanRolePermission.MANAGE_TREASURY);
+    }
+
+    public void depositCurrency(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        long updated = (long) currencyBalance + amount;
+        currencyBalance = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, updated));
+    }
+
+    public boolean withdrawCurrency(int amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        if (currencyBalance < amount) {
+            return false;
+        }
+        currencyBalance -= amount;
+        return true;
     }
 
     public long countMembersWithRole(String roleId) {

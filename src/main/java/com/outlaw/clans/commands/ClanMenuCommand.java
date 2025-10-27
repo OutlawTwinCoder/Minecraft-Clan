@@ -18,43 +18,30 @@ public class ClanMenuCommand implements CommandExecutor {
         if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
 
         if (args.length >= 1 && args[0].equalsIgnoreCase("currency")) {
-            if (!p.hasPermission("outlawclans.admin") && !p.hasPermission("outlawclan.admin")) { p.sendMessage(ChatColor.RED + "Permission manquante."); return true; }
-            if (args.length == 2 && args[1].equalsIgnoreCase("money")) {
-                plugin.getConfig().set("economy.mode","MONEY"); plugin.saveConfig();
-                p.sendMessage(ChatColor.GREEN + "Monnaie: MONEY"); return true;
-            }
-            if (args.length >= 2) {
-                try {
-                    org.bukkit.Material m = org.bukkit.Material.valueOf(args[1].toUpperCase());
-                    plugin.getConfig().set("economy.mode","ITEM");
-                    plugin.getConfig().set("economy.item_type", m.name());
-                    plugin.saveConfig();
-                    p.sendMessage(ChatColor.GREEN + "Monnaie: ITEM ("+m.name()+")");
-                } catch (Exception ex) { p.sendMessage(ChatColor.RED + "Item inconnu: " + args[1]); }
+            if (!p.hasPermission("outlawclans.admin") && !p.hasPermission("outlawclan.admin")) {
+                p.sendMessage(ChatColor.RED + "Permission manquante.");
                 return true;
             }
-            p.sendMessage(ChatColor.YELLOW + "Usage: /clan currency money | /clan currency <ITEM_NAME>");
-            return true;
-        }
-
-        if (args.length >= 1 && args[0].equalsIgnoreCase("money")) {
-            if (!p.hasPermission("outlawclans.admin") && !p.hasPermission("outlawclan.admin")) { p.sendMessage(ChatColor.RED + "Permission manquante."); return true; }
-            if (args.length == 2 && args[1].equalsIgnoreCase("get")) {
-                p.sendMessage(ChatColor.AQUA + "Votre solde: " + plugin.economy().getBalance(p.getUniqueId())); return true;
+            if (args.length >= 2) {
+                String choice = args[1];
+                if (choice.equalsIgnoreCase("xp") || choice.equalsIgnoreCase("exp")) {
+                    plugin.getConfig().set("economy.mode", "XP");
+                    plugin.saveConfig();
+                    p.sendMessage(ChatColor.GREEN + "Monnaie: XP");
+                    return true;
+                }
+                try {
+                    org.bukkit.Material material = org.bukkit.Material.valueOf(choice.toUpperCase());
+                    plugin.getConfig().set("economy.mode", "ITEM");
+                    plugin.getConfig().set("economy.item_type", material.name());
+                    plugin.saveConfig();
+                    p.sendMessage(ChatColor.GREEN + "Monnaie: Objet (" + material.name() + ")");
+                } catch (Exception ex) {
+                    p.sendMessage(ChatColor.RED + "Item inconnu: " + choice);
+                }
+                return true;
             }
-            if (args.length >= 4 && args[1].equalsIgnoreCase("set")) {
-                org.bukkit.OfflinePlayer t = org.bukkit.Bukkit.getOfflinePlayer(args[2]);
-                double amount = Double.parseDouble(args[3]);
-                plugin.economy().setBalance(t.getUniqueId(), amount);
-                p.sendMessage(ChatColor.GREEN + "Solde défini pour " + args[2] + ": " + amount); return true;
-            }
-            if (args.length >= 4 && args[1].equalsIgnoreCase("give")) {
-                org.bukkit.OfflinePlayer t = org.bukkit.Bukkit.getOfflinePlayer(args[2]);
-                double amount = Double.parseDouble(args[3]);
-                plugin.economy().give(t.getUniqueId(), amount);
-                p.sendMessage(ChatColor.GREEN + "Ajouté " + amount + " à " + args[2]); return true;
-            }
-            p.sendMessage(ChatColor.YELLOW + "Usage: /clan money get | /clan money set <player> <amount> | /clan money give <player> <amount>");
+            p.sendMessage(ChatColor.YELLOW + "Usage: /clan currency xp | /clan currency <ITEM_NAME>");
             return true;
         }
 
@@ -92,6 +79,16 @@ public class ClanMenuCommand implements CommandExecutor {
             return true;
         }
 
+        if (args.length >= 1 && args[0].equalsIgnoreCase("upgrade")) {
+            var opt = plugin.clans().getClanByPlayer(p.getUniqueId());
+            if (opt.isEmpty()) {
+                p.sendMessage(ChatColor.RED + "Vous n'êtes dans aucun clan.");
+                return true;
+            }
+            plugin.menuUI().handleTerritoryUpgrade(p, opt.get());
+            return true;
+        }
+
         if (args.length >= 1 && args[0].equalsIgnoreCase("menu")) {
             var opt = plugin.clans().getClanByPlayer(p.getUniqueId());
             if (opt.isEmpty()) { p.sendMessage(ChatColor.RED + "Vous n'êtes dans aucun clan."); return true; }
@@ -99,7 +96,7 @@ public class ClanMenuCommand implements CommandExecutor {
             plugin.menuUI().openFor(p, clan);
             return true;
         }
-        p.sendMessage(ChatColor.YELLOW + "Usage: /clan menu | /clan show territory | /clan currency | /clan money ... | /clan terraform");
+        p.sendMessage(ChatColor.YELLOW + "Usage: /clan menu | /clan show territory | /clan currency | /clan terraform | /clan upgrade");
         return true;
     }
 }

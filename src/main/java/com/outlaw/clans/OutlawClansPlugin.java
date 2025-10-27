@@ -17,6 +17,7 @@ import com.outlaw.clans.commands.CreateClanCostCommand;
 import com.outlaw.clans.commands.ClanTerritoryCostCommand;
 import com.outlaw.clans.commands.DeleteClanCommand;
 import com.outlaw.clans.commands.LeaveClanCommand;
+import com.outlaw.clans.commands.ClanUpgradeCostCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -58,6 +59,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         getCommand("show").setExecutor(new ShowTerritoryCommand(this));
         getCommand("createclancost").setExecutor(new CreateClanCostCommand(this));
         getCommand("clanterritorycost").setExecutor(new ClanTerritoryCostCommand(this));
+        getCommand("clanupgrade").setExecutor(new ClanUpgradeCostCommand(this));
         getCommand("deleteclan").setExecutor(new DeleteClanCommand(this));
         getCommand("leaveclan").setExecutor(new LeaveClanCommand(this));
 

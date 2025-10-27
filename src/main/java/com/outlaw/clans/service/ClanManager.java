@@ -108,6 +108,7 @@ public class ClanManager {
             List<String> mems = new ArrayList<>();
             for (java.util.UUID u : c.getMembers()) mems.add(u.toString());
             clansCfg.set(path + ".members", mems);
+            clansCfg.set(path + ".bank", c.getCurrencyBalance());
             if (!c.getRoles().isEmpty()) {
                 for (ClanRole role : c.getRoles().values()) {
                     String rp = path + ".roles." + role.getId();
@@ -199,6 +200,7 @@ public class ClanManager {
                     } catch (Exception ignored) {}
                 }
             }
+            c.setCurrencyBalance(clansCfg.getInt(base+".bank", 0));
             if (clansCfg.isConfigurationSection(base+".territory")) {
                 String w = clansCfg.getString(base+".territory.world");
                 int r = clansCfg.getInt(base+".territory.radius", 75);
@@ -256,7 +258,8 @@ public class ClanManager {
 
         if (roleDefaults.isEmpty()) {
             ClanRole officer = new ClanRole("officer", ChatColor.GOLD + "Officier",
-                    EnumSet.of(ClanRolePermission.BUILD_TERRAIN, ClanRolePermission.MANAGE_TERRAINS, ClanRolePermission.ACCESS_FARM_CHEST));
+                    EnumSet.of(ClanRolePermission.BUILD_TERRAIN, ClanRolePermission.MANAGE_TERRAINS,
+                            ClanRolePermission.ACCESS_FARM_CHEST, ClanRolePermission.MANAGE_TREASURY));
             ClanRole member = new ClanRole("member", ChatColor.GREEN + "Membre",
                     EnumSet.of(ClanRolePermission.BUILD_TERRAIN, ClanRolePermission.ACCESS_FARM_CHEST));
             ClanRole recruit = new ClanRole("recruit", ChatColor.GRAY + "Recrue", EnumSet.noneOf(ClanRolePermission.class));
@@ -280,7 +283,18 @@ public class ClanManager {
             }
         } else {
             for (Map.Entry<String, ClanRole> entry : roleDefaults.entrySet()) {
-                clan.getRoles().putIfAbsent(entry.getKey(), entry.getValue().copy());
+                ClanRole template = entry.getValue();
+                clan.getRoles().compute(entry.getKey(), (id, existing) -> {
+                    if (existing == null) {
+                        return template.copy();
+                    }
+                    for (ClanRolePermission perm : template.getPermissions()) {
+                        if (!existing.hasPermission(perm)) {
+                            existing.setPermission(perm, true);
+                        }
+                    }
+                    return existing;
+                });
             }
         }
 

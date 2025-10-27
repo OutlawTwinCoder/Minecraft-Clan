@@ -5,6 +5,7 @@ import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.ClanRole;
 import com.outlaw.clans.model.ClanRolePermission;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.ui.ClanMenuUI;
 import com.outlaw.clans.util.Keys;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -37,6 +38,8 @@ public class NPCManager implements Listener {
     private final NamespacedKey clanMenuRoleKey;
     private final NamespacedKey clanMenuPermissionKey;
     private final NamespacedKey clanMenuMemberKey;
+    private final NamespacedKey clanMenuBankActionKey;
+    private final NamespacedKey clanMenuBankAmountKey;
     private final Map<UUID, NpcType> npcTypes = new HashMap<>();
     private final Map<UUID, List<UUID>> activeDisplays = new HashMap<>();
 
@@ -52,6 +55,8 @@ public class NPCManager implements Listener {
         this.clanMenuRoleKey = new NamespacedKey(plugin, Keys.CLAN_MENU_ROLE);
         this.clanMenuPermissionKey = new NamespacedKey(plugin, Keys.CLAN_MENU_PERMISSION);
         this.clanMenuMemberKey = new NamespacedKey(plugin, Keys.CLAN_MENU_MEMBER);
+        this.clanMenuBankActionKey = new NamespacedKey(plugin, Keys.CLAN_MENU_BANK_ACTION);
+        this.clanMenuBankAmountKey = new NamespacedKey(plugin, Keys.CLAN_MENU_BANK_AMOUNT);
     }
 
     public Villager spawnTerritoryMerchant(Location loc) {
@@ -118,11 +123,9 @@ public class NPCManager implements Listener {
     }
 
     private void openTerritoryShop(Player p) {
-        String title = ChatColor.DARK_GREEN + "Achat de Territoire (" + (OutlawClansPlugin.get().economy().mode()==com.outlaw.clans.service.EconomyService.Mode.MONEY
-                ? OutlawClansPlugin.get().economy().costTerritory() + "$"
-                : OutlawClansPlugin.get().economy().costTerritory() + " " + OutlawClansPlugin.get().economy().itemType().name()) + ")";
-        Inventory inv = Bukkit.createInventory(p, 27, title);
         int price = OutlawClansPlugin.get().economy().costTerritory();
+        String title = ChatColor.DARK_GREEN + "Achat de Territoire (" + OutlawClansPlugin.get().economy().formatAmount(price) + ")";
+        Inventory inv = Bukkit.createInventory(p, 27, title);
         inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire", "&7Prix: &e" + price));
         inv.setItem(15, named(Material.BARRIER, "&cFermer"));
         p.openInventory(inv);
@@ -178,7 +181,8 @@ public class NPCManager implements Listener {
             case "close" -> player.closeInventory();
             case "home", "members", "terrains", "terrain-settings", "terrain-buildings", "terrain-resources",
                     "terrain-select-type", "terrain-select-schematic", "terrain-set-resource", "roles",
-                    "role-settings", "role-toggle", "member-assign", "member-role-set" -> {
+                    "role-settings", "role-toggle", "member-assign", "member-role-set",
+                    "bank", "bank-pick", "bank-amount", "bank-give-member", "territory-upgrade" -> {
                 var optClan = plugin.clans().getClanByPlayer(player.getUniqueId());
                 if (optClan.isEmpty()) {
                     player.closeInventory();
@@ -188,6 +192,7 @@ public class NPCManager implements Listener {
                 switch (action) {
                     case "home" -> plugin.menuUI().openHome(player, clan);
                     case "members" -> plugin.menuUI().openMembers(player, clan);
+                    case "bank" -> plugin.menuUI().openBank(player, clan);
                     case "terrains" -> plugin.menuUI().openTerrains(player, clan);
                     case "terrain-settings" -> {
                         Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
@@ -277,6 +282,41 @@ public class NPCManager implements Listener {
                         }
                         plugin.menuUI().openRoles(player, clan);
                     }
+                    case "bank-pick" -> {
+                        String bankAction = meta.getPersistentDataContainer().get(clanMenuBankActionKey, PersistentDataType.STRING);
+                        ClanMenuUI.BankAction selected = ClanMenuUI.BankAction.fromKey(bankAction);
+                        if (selected == null) {
+                            plugin.menuUI().openBank(player, clan);
+                        } else {
+                            plugin.menuUI().openBankAmounts(player, clan, selected);
+                        }
+                    }
+                    case "bank-amount" -> {
+                        String bankAction = meta.getPersistentDataContainer().get(clanMenuBankActionKey, PersistentDataType.STRING);
+                        Integer amount = meta.getPersistentDataContainer().get(clanMenuBankAmountKey, PersistentDataType.INTEGER);
+                        ClanMenuUI.BankAction selected = ClanMenuUI.BankAction.fromKey(bankAction);
+                        if (amount == null) {
+                            amount = 0;
+                        }
+                        plugin.menuUI().handleBankAmount(player, clan, selected, amount);
+                    }
+                    case "bank-give-member" -> {
+                        Integer amount = meta.getPersistentDataContainer().get(clanMenuBankAmountKey, PersistentDataType.INTEGER);
+                        String memberId = meta.getPersistentDataContainer().get(clanMenuMemberKey, PersistentDataType.STRING);
+                        if (amount == null || memberId == null) {
+                            player.sendMessage(ChatColor.RED + "Sélection invalide.");
+                            plugin.menuUI().openBank(player, clan);
+                            return;
+                        }
+                        try {
+                            UUID target = UUID.fromString(memberId);
+                            plugin.menuUI().handleBankTransfer(player, clan, amount, target);
+                        } catch (IllegalArgumentException ex) {
+                            player.sendMessage(ChatColor.RED + "Membre invalide.");
+                            plugin.menuUI().openBank(player, clan);
+                        }
+                    }
+                    case "territory-upgrade" -> plugin.menuUI().handleTerritoryUpgrade(player, clan);
                     case "role-settings" -> {
                         if (!clan.canManageRoles(player.getUniqueId())) {
                             player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas gérer les rôles.");
