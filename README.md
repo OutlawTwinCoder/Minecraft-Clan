@@ -31,7 +31,7 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
 | `/clan upgrade` | Améliore le territoire (+50 rayon, consomme la banque). | Leader ou rôle avec `MANAGE_TERRAINS` + `MANAGE_TREASURY` |
 | `/createclancost <montant>` | Met à jour le coût de création de clan (config). | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clanterritorycost <montant>` | Met à jour le coût d’achat du territoire (config). | `outlawclans.admin` ou `outlawclan.admin` |
-| `/clanupgrade cost <montant>` | Définit le coût d’amélioration du territoire (config). | `outlawclans.admin` ou `outlawclan.admin` |
+| `/clanupgrade cost <montant>` / `/clanupgrade <montant>` | Définit le coût d’amélioration du territoire (config). | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clan terraform` | Relance manuellement la plateforme 150×150 + feather. | `outlawclans.admin` ou `outlawclan.admin` |
 | `/deleteclan confirm` | Dissout le clan (leader uniquement). | Leader (aucune permission plugin) |
 | `/leaveclan confirm` | Quitte le clan (membres non-leaders). | Membre du clan |

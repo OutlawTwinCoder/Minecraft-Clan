@@ -29,7 +29,7 @@ commands:
     permission: outlawclans.admin
   clanupgrade:
     description: Définit le coût d'amélioration du territoire
-    usage: /clanupgrade cost <amount>
+    usage: /clanupgrade cost <amount> | /clanupgrade <amount>
     permission: outlawclans.admin
   deleteclan:
     description: Supprime votre clan (leader uniquement) — nécessite /deleteclan confirm

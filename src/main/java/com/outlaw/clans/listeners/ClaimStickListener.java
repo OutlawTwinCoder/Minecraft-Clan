@@ -120,10 +120,21 @@ public class ClaimStickListener implements Listener {
 
                 int cornerX = center.getBlockX() + sx * (phalf - 1);
                 int cornerZ = center.getBlockZ() + sz * (phalf - 1);
-                int signOffset = Math.max(1, plugin.getConfig().getInt("building.sign_y_offset", 2));
-                int cornerY = center.getBlockY() + signOffset;
+                int signOffset = Math.max(0, plugin.getConfig().getInt("building.sign_y_offset", 2));
+                int supportY = center.getBlockY() + signOffset;
+                int signY = supportY + 1;
+                if (center.getWorld() != null) {
+                    int max = center.getWorld().getMaxHeight() - 1;
+                    int min = center.getWorld().getMinHeight() + 1;
+                    if (signY > max) {
+                        signY = max;
+                    }
+                    if (signY < min) {
+                        signY = min;
+                    }
+                }
 
-                org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
+                org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, signY, cornerZ);
                 placePlotSign(signLoc, dx, dz, i);
             }
         }, delay);
