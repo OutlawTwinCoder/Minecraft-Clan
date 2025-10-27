@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public class EconomyService {
 
-    public enum Mode { MONEY, ITEM }
+    public enum Mode { MONEY, ITEM, EXPERIENCE }
 
     private final com.outlaw.clans.OutlawClansPlugin plugin;
     private File moneyFile;
@@ -32,21 +32,54 @@ public class EconomyService {
     public void give(UUID player, double amount) { setBalance(player, getBalance(player) + amount); }
     public void take(UUID player, double amount) { setBalance(player, Math.max(0, getBalance(player) - amount)); }
 
-    public Mode mode() { try { return Mode.valueOf(plugin.getConfig().getString("economy.mode","MONEY").toUpperCase()); } catch (Exception e) { return Mode.MONEY; } }
+    public Mode mode() {
+        try {
+            String raw = plugin.getConfig().getString("economy.mode", "MONEY");
+            if (raw == null) raw = "MONEY";
+            if (raw.equalsIgnoreCase("XP")) raw = "EXPERIENCE";
+            return Mode.valueOf(raw.toUpperCase());
+        } catch (Exception e) {
+            return Mode.MONEY;
+        }
+    }
     public Material itemType() { try { return Material.valueOf(plugin.getConfig().getString("economy.item_type","DIAMOND").toUpperCase()); } catch (Exception e) { return Material.DIAMOND; }
     }
-    public int costCreateClan() { return mode()==Mode.ITEM ? plugin.getConfig().getInt("economy.item.create_clan_cost",500) : plugin.getConfig().getInt("economy.money.create_clan_cost",500); }
-    public int costTerritory() { return mode()==Mode.ITEM ? plugin.getConfig().getInt("economy.item.territory_cost",1500) : plugin.getConfig().getInt("economy.money.territory_cost",1500); }
+    public int costCreateClan() {
+        return switch (mode()) {
+            case ITEM -> plugin.getConfig().getInt("economy.item.create_clan_cost", 500);
+            case EXPERIENCE -> plugin.getConfig().getInt("economy.experience.create_clan_cost", 500);
+            case MONEY -> plugin.getConfig().getInt("economy.money.create_clan_cost", 500);
+        };
+    }
+
+    public int costTerritory() {
+        return switch (mode()) {
+            case ITEM -> plugin.getConfig().getInt("economy.item.territory_cost", 1500);
+            case EXPERIENCE -> plugin.getConfig().getInt("economy.experience.territory_cost", 1500);
+            case MONEY -> plugin.getConfig().getInt("economy.money.territory_cost", 1500);
+        };
+    }
 
     public boolean chargeCreate(Player p) { return charge(p, costCreateClan()); }
     public boolean chargeTerritory(Player p) { return charge(p, costTerritory()); }
 
     private boolean charge(Player p, int cost) {
         if (!canAfford(p, cost)) return false;
-        if (mode()==Mode.MONEY) take(p.getUniqueId(), cost); else removeItems(p, itemType(), cost);
+        switch (mode()) {
+            case MONEY -> take(p.getUniqueId(), cost);
+            case ITEM -> removeItems(p, itemType(), cost);
+            case EXPERIENCE -> removeExperience(p, cost);
+        }
         return true;
     }
-    public boolean canAfford(Player p, int cost) { return mode()==Mode.MONEY ? getBalance(p.getUniqueId())>=cost : countItem(p, itemType())>=cost; }
+
+    public boolean canAfford(Player p, int cost) {
+        return switch (mode()) {
+            case MONEY -> getBalance(p.getUniqueId()) >= cost;
+            case ITEM -> countItem(p, itemType()) >= cost;
+            case EXPERIENCE -> p.getTotalExperience() >= cost;
+        };
+    }
 
     private int countItem(Player p, Material m) { int c=0; for (ItemStack is : p.getInventory().getContents()) if (is!=null && is.getType()==m) c+=is.getAmount(); return c; }
     private void removeItems(Player p, Material m, int count) {
@@ -56,6 +89,14 @@ public class EconomyService {
             int take = Math.min(count, is.getAmount());
             is.setAmount(is.getAmount()-take); if (is.getAmount()<=0) p.getInventory().setItem(i, null);
             count -= take;
+        }
+    }
+
+    private void removeExperience(Player p, int amount) {
+        int available = p.getTotalExperience();
+        int toRemove = Math.min(amount, available);
+        if (toRemove != 0) {
+            p.giveExp(-toRemove);
         }
     }
 }

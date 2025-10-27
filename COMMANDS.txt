@@ -4,7 +4,7 @@
 /create clan npc
 /clan menu
 /clan show territory     | /show clan territoire
-/clan currency xp        | /clan currency <ITEM_NAME>
+/clan currency money     | /clan currency experience | /clan currency item <ITEM_NAME>
 /clan upgrade
 /createclancost <amount>
 /clanterritorycost <amount>
