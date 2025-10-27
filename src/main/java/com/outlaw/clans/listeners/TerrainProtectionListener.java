@@ -39,15 +39,12 @@ public class TerrainProtectionListener implements Listener {
         if (clan == null) {
             return;
         }
+        event.setCancelled(true);
         if (!clan.isMember(player.getUniqueId())) {
-            event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Ce terrain appartient à " + clan.getName() + ".");
             return;
         }
-        if (!clan.canBuild(player.getUniqueId())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Ton rôle ne permet pas de modifier ce terrain.");
-        }
+        player.sendMessage(ChatColor.RED + "Tu ne peux pas modifier ce terrain protégé du clan.");
     }
 
     private Clan findOwningClan(Location location) {
