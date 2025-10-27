@@ -30,7 +30,7 @@ public class ClanCenterInteractionListener implements Listener {
     public ClanCenterInteractionListener(OutlawClansPlugin plugin) {
         this.plugin = plugin;
         this.plotSignKey = new NamespacedKey(plugin, Keys.PLOT_SIGN);
-        this.menuUI = new ClanMenuUI(plugin);
+        this.menuUI = plugin.menuUI();
         this.centerRadius = Math.max(1, plugin.getConfig().getInt("building.center_schematic.lectern_radius", 4));
     }
 
@@ -61,12 +61,12 @@ public class ClanCenterInteractionListener implements Listener {
         Clan clan = optClan.get();
         Optional<Clan> playerClan = plugin.clans().getClanByPlayer(player.getUniqueId());
         if (playerClan.isEmpty() || !playerClan.get().getId().equals(clan.getId())) {
-            player.sendMessage(ChatColor.RED + "Ce plot appartient au clan " + clan.getName() + ".");
+            player.sendMessage(ChatColor.RED + "Ce terrain appartient au clan " + clan.getName() + ".");
             return;
         }
 
         event.setCancelled(true);
-        plugin.npcs().openSchematicShop(player, index);
+        plugin.menuUI().openTerrainSettings(player, clan, index);
     }
 
     private void handleLectern(PlayerInteractEvent event, Block block) {
