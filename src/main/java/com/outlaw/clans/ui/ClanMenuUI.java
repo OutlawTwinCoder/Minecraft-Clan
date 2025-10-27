@@ -231,7 +231,7 @@ public class ClanMenuUI {
             meta.setDisplayName(ChatColor.AQUA + displayName(offline, targetId));
             List<String> lore = new ArrayList<>();
             if (Bukkit.getPlayer(targetId) == null) {
-                lore.add(ChatColor.RED + "Hors ligne - impossible de recevoir l'XP");
+                lore.add(ChatColor.RED + "Hors ligne - impossible de recevoir la monnaie");
             } else {
                 lore.add(ChatColor.YELLOW + "Clique pour envoyer la monnaie");
             }
@@ -331,7 +331,7 @@ public class ClanMenuUI {
         if (target == null) {
             clan.depositCurrency(amount);
             plugin.clans().saveAll();
-            player.sendMessage(ChatColor.RED + "Le joueur doit être en ligne pour recevoir l'XP.");
+            player.sendMessage(ChatColor.RED + "Le joueur doit être en ligne pour recevoir la monnaie du clan.");
             openBankMemberSelect(player, clan, amount);
             return;
         }

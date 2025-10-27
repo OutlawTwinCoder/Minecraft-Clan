@@ -124,6 +124,7 @@ public class ClaimStickListener implements Listener {
                 int cornerY = center.getBlockY() + signOffset;
 
                 org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
+                signLoc = adjustSignLocation(signLoc);
                 placePlotSign(signLoc, dx, dz, i);
             }
         }, delay);
@@ -187,6 +188,27 @@ public class ClaimStickListener implements Listener {
         signState.update(true, false);
 
         orientSignTowardsCenter(block, dx, dz);
+    }
+
+    private Location adjustSignLocation(Location base) {
+        if (base.getWorld() == null) {
+            return base;
+        }
+        World world = base.getWorld();
+        int searchRange = Math.max(0, plugin.getConfig().getInt("building.sign_height_search", 5));
+        int x = base.getBlockX();
+        int z = base.getBlockZ();
+        int highest = base.getBlockY();
+        int maxY = Math.min(world.getMaxHeight() - 1, highest + searchRange);
+        for (int y = highest; y <= maxY; y++) {
+            Material type = world.getBlockAt(x, y, z).getType();
+            if (!type.isAir()) {
+                highest = y;
+            }
+        }
+        Location adjusted = base.clone();
+        adjusted.setY(highest);
+        return adjusted;
     }
 
     private void scheduleFenceGeneration(java.util.List<Location> bases, Territory territory, int thickness, int clearAbove, int perTick, boolean terraformFull) {
