@@ -19,21 +19,46 @@ public class ClanMenuCommand implements CommandExecutor {
 
         if (args.length >= 1 && args[0].equalsIgnoreCase("currency")) {
             if (!p.hasPermission("outlawclans.admin") && !p.hasPermission("outlawclan.admin")) { p.sendMessage(ChatColor.RED + "Permission manquante."); return true; }
-            if (args.length == 2 && args[1].equalsIgnoreCase("money")) {
-                plugin.getConfig().set("economy.mode","MONEY"); plugin.saveConfig();
-                p.sendMessage(ChatColor.GREEN + "Monnaie: MONEY"); return true;
-            }
+
             if (args.length >= 2) {
+                String modeArg = args[1];
+
+                if (modeArg.equalsIgnoreCase("money")) {
+                    plugin.getConfig().set("economy.mode", "MONEY");
+                    plugin.saveConfig();
+                    p.sendMessage(ChatColor.GREEN + "Monnaie: MONEY");
+                    return true;
+                }
+
+                if (modeArg.equalsIgnoreCase("experience") || modeArg.equalsIgnoreCase("xp")) {
+                    plugin.getConfig().set("economy.mode", "EXPERIENCE");
+                    plugin.saveConfig();
+                    p.sendMessage(ChatColor.GREEN + "Monnaie: EXPERIENCE");
+                    return true;
+                }
+
+                String itemName = modeArg;
+                if (modeArg.equalsIgnoreCase("item")) {
+                    if (args.length < 3) {
+                        p.sendMessage(ChatColor.YELLOW + "Usage: /clan currency item <ITEM_NAME>");
+                        return true;
+                    }
+                    itemName = args[2];
+                }
+
                 try {
-                    org.bukkit.Material m = org.bukkit.Material.valueOf(args[1].toUpperCase());
-                    plugin.getConfig().set("economy.mode","ITEM");
+                    org.bukkit.Material m = org.bukkit.Material.valueOf(itemName.toUpperCase());
+                    plugin.getConfig().set("economy.mode", "ITEM");
                     plugin.getConfig().set("economy.item_type", m.name());
                     plugin.saveConfig();
-                    p.sendMessage(ChatColor.GREEN + "Monnaie: ITEM ("+m.name()+")");
-                } catch (Exception ex) { p.sendMessage(ChatColor.RED + "Item inconnu: " + args[1]); }
+                    p.sendMessage(ChatColor.GREEN + "Monnaie: ITEM (" + m.name() + ")");
+                } catch (Exception ex) {
+                    p.sendMessage(ChatColor.RED + "Item inconnu: " + itemName);
+                }
                 return true;
             }
-            p.sendMessage(ChatColor.YELLOW + "Usage: /clan currency money | /clan currency <ITEM_NAME>");
+
+            p.sendMessage(ChatColor.YELLOW + "Usage: /clan currency money | /clan currency experience | /clan currency xp | /clan currency item <ITEM_NAME>");
             return true;
         }
 
