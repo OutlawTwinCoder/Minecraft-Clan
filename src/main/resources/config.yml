@@ -10,7 +10,7 @@ building:
   plot_size: 35
   edge_margin: 12
   paste_y_offset: 1     # +1 bloc
-  sign_y_offset: 2
+  sign_y_offset: 2      # hauteur du bloc de support (la pancarte est posée un bloc au-dessus)
   min_spacing: 40
   fence:
     enabled: true

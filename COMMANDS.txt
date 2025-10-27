@@ -9,6 +9,7 @@
 /createclancost <amount>
 /clanterritorycost <amount>
 /clanupgrade cost <amount>
+/clanupgrade <amount>
 /deleteclan confirm
 /leaveclan confirm
 /clan terraform
