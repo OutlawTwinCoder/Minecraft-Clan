@@ -68,11 +68,12 @@ public class ClaimStickListener implements Listener {
         int xRight  = clicked.getX() + r - edge - half;
         int by = clicked.getY();
 
-        bases.add(new Location(w, xLeft  + 0.5, by, zTop    + 0.5));
-        bases.add(new Location(w, xRight + 0.5, by, zTop    + 0.5));
-        bases.add(new Location(w, xLeft  + 0.5, by, zBottom + 0.5));
-        bases.add(new Location(w, xCenter+ 0.5, by, zBottom + 0.5));
-        bases.add(new Location(w, xRight + 0.5, by, zBottom + 0.5));
+        bases.add(new Location(w, xLeft   + 0.5, by, zTop    + 0.5));
+        bases.add(new Location(w, xCenter + 0.5, by, zTop    + 0.5));
+        bases.add(new Location(w, xRight  + 0.5, by, zTop    + 0.5));
+        bases.add(new Location(w, xLeft   + 0.5, by, zBottom + 0.5));
+        bases.add(new Location(w, xCenter + 0.5, by, zBottom + 0.5));
+        bases.add(new Location(w, xRight  + 0.5, by, zBottom + 0.5));
 
         plugin.clans().setTerritory(clan, t, bases);
         p.sendMessage(ChatColor.GREEN + "Centre de territoire défini. Rayon: " + r + " (≈" + (r*2) + "x" + (r*2) + ").");
@@ -81,6 +82,8 @@ public class ClaimStickListener implements Listener {
         int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
         int perTick = plugin.getConfig().getInt("terraform.blocks_per_tick", 1500);
         boolean terraformFull = plugin.getConfig().getBoolean("terraform.full_territory", true);
+
+        scheduleFenceGeneration(bases, t, thickness, clearAbove, perTick, terraformFull);
 
         if (terraformFull) {
             org.bukkit.Material topMat = org.bukkit.Material.valueOf(plugin.getConfig().getString("terraform.surface_top_material","GRASS_BLOCK").toUpperCase());
@@ -174,7 +177,7 @@ public class ClaimStickListener implements Listener {
         var state = block.getState();
         if (!(state instanceof Sign signState)) return;
 
-        signState.setLine(0, ChatColor.AQUA + "Plot #" + (index + 1));
+        signState.setLine(0, ChatColor.AQUA + "Terrain #" + (index + 1));
         signState.setLine(1, ChatColor.YELLOW + "Clique pour");
         signState.setLine(2, ChatColor.YELLOW + "les plans");
         signState.setLine(3, ChatColor.GRAY + "Rotation incluse");
@@ -182,6 +185,84 @@ public class ClaimStickListener implements Listener {
         signState.update(true, false);
 
         orientSignTowardsCenter(block, dx, dz);
+    }
+
+    private void scheduleFenceGeneration(java.util.List<Location> bases, Territory territory, int thickness, int clearAbove, int perTick, boolean terraformFull) {
+        if (bases.isEmpty()) return;
+        long delay = 40L;
+        if (terraformFull && territory != null) {
+            int size = territory.getRadius() * 2 + 1;
+            delay += plugin.terraform().estimateTicksForPlatform(size, thickness, clearAbove, perTick);
+        }
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            for (Location base : bases) {
+                buildTerrainFences(base);
+            }
+        }, delay);
+    }
+
+    private void buildTerrainFences(Location center) {
+        if (center == null || center.getWorld() == null) return;
+        if (!plugin.getConfig().getBoolean("building.fence.enabled", true)) return;
+
+        org.bukkit.World world = center.getWorld();
+        int plotSize = plugin.getConfig().getInt("building.plot_size", 35);
+        int offset = Math.max(0, plugin.getConfig().getInt("building.fence.offset", 1));
+        int half = plotSize / 2 + offset;
+        int minX = center.getBlockX() - half;
+        int maxX = center.getBlockX() + half;
+        int minZ = center.getBlockZ() - half;
+        int maxZ = center.getBlockZ() + half;
+
+        int baseYOffset = plugin.getConfig().getInt("building.fence.y_offset", 1);
+        String materialKey = plugin.getConfig().getString("building.fence.material", "OAK_FENCE");
+        org.bukkit.Material fenceMaterial = org.bukkit.Material.OAK_FENCE;
+        if (materialKey != null) {
+            org.bukkit.Material candidate = org.bukkit.Material.matchMaterial(materialKey.toUpperCase());
+            if (candidate != null) fenceMaterial = candidate;
+        }
+
+        int segment = Math.max(1, plugin.getConfig().getInt("building.fence.segment_length", 6));
+        int gap = Math.max(0, plugin.getConfig().getInt("building.fence.gap_length", 6));
+        int cycle = Math.max(segment + gap, 1);
+        int height = Math.max(1, plugin.getConfig().getInt("building.fence.height", 1));
+
+        int fenceY = center.getBlockY() + baseYOffset;
+        fenceY = Math.max(world.getMinHeight(), Math.min(fenceY, world.getMaxHeight() - height));
+
+        int index = 0;
+        for (int x = minX; x <= maxX; x++) {
+            applyFenceColumn(world, x, fenceY, minZ, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
+        }
+        for (int z = minZ + 1; z <= maxZ - 1; z++) {
+            applyFenceColumn(world, maxX, fenceY, z, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
+        }
+        for (int x = maxX; x >= minX; x--) {
+            applyFenceColumn(world, x, fenceY, maxZ, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
+        }
+        for (int z = maxZ - 1; z >= minZ + 1; z--) {
+            applyFenceColumn(world, minX, fenceY, z, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
+        }
+    }
+
+    private void applyFenceColumn(org.bukkit.World world, int x, int y, int z, int height, org.bukkit.Material fenceMaterial, boolean place) {
+        for (int dy = 0; dy < height; dy++) {
+            org.bukkit.block.Block block = world.getBlockAt(x, y + dy, z);
+            if (place) {
+                block.setType(fenceMaterial, false);
+            } else {
+                org.bukkit.Material current = block.getType();
+                if (current == fenceMaterial || current.name().endsWith("_FENCE") || current.name().endsWith("_WALL")) {
+                    block.setType(org.bukkit.Material.AIR, false);
+                }
+            }
+        }
+    }
+
+    private boolean shouldPlaceFence(int index, int segment, int cycle) {
+        if (cycle <= 0) return true;
+        int mod = index % cycle;
+        return mod < segment;
     }
 
     private void orientSignTowardsCenter(Block block, int dx, int dz) {

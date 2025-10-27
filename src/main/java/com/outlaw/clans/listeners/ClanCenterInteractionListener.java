@@ -61,7 +61,7 @@ public class ClanCenterInteractionListener implements Listener {
         Clan clan = optClan.get();
         Optional<Clan> playerClan = plugin.clans().getClanByPlayer(player.getUniqueId());
         if (playerClan.isEmpty() || !playerClan.get().getId().equals(clan.getId())) {
-            player.sendMessage(ChatColor.RED + "Ce plot appartient au clan " + clan.getName() + ".");
+            player.sendMessage(ChatColor.RED + "Ce terrain appartient au clan " + clan.getName() + ".");
             return;
         }
 

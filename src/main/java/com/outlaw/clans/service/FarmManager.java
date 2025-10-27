@@ -259,6 +259,9 @@ public class FarmManager implements Listener {
 
     @EventHandler
     public void onChestPlace(BlockPlaceEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
         ItemStack item = event.getItemInHand();
         if (item == null) {
             return;
@@ -322,6 +325,9 @@ public class FarmManager implements Listener {
 
     @EventHandler
     public void onChestBreak(BlockBreakEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
         Location loc = event.getBlock().getLocation();
         for (Clan clan : plugin.clans().allClans()) {
             for (int i = 0; i < clan.getSpots().size(); i++) {

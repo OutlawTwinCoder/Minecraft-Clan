@@ -5,11 +5,19 @@ territory:
   world: "world"
 
 building:
-  spots: 5
+  spots: 6
   plot_size: 35
   edge_margin: 12
   paste_y_offset: 1     # +1 bloc
   min_spacing: 40
+  fence:
+    enabled: true
+    material: "OAK_FENCE"
+    segment_length: 6
+    gap_length: 6
+    height: 1
+    offset: 1
+    y_offset: 1
   center_schematic:
     enabled: true
     file: "ClanCenter.schem"

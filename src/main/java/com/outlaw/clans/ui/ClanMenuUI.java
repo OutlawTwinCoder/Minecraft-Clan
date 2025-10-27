@@ -429,7 +429,7 @@ public class ClanMenuUI {
         ItemMeta meta = center.getItemMeta();
         meta.setDisplayName(ChatColor.GOLD + "Centre du Clan");
         meta.setLore(lore(ChatColor.GRAY + "Utilise les pupitres pour ouvrir ce menu.",
-                ChatColor.GRAY + "Les pancartes des plots remplacent les NPC."));
+                ChatColor.GRAY + "Les pancartes des terrains remplacent les NPC."));
         center.setItemMeta(meta);
         return center;
     }
