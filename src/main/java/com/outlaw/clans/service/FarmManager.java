@@ -19,6 +19,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -304,6 +306,12 @@ public class FarmManager implements Listener {
             return;
         }
 
+        if (!clan.canManageTerrains(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "Ton rôle ne peut pas lier ce coffre au terrain.");
+            return;
+        }
+
         Location placeLoc = event.getBlockPlaced().getLocation().add(0.5, 0, 0.5);
         if (!clan.isInside(placeLoc)) {
             event.setCancelled(true);
@@ -345,6 +353,11 @@ public class FarmManager implements Listener {
                         event.getPlayer().sendMessage(ChatColor.RED + "Ce coffre appartient à " + clan.getName() + ".");
                         return;
                     }
+                    if (!clan.canManageTerrains(event.getPlayer().getUniqueId())) {
+                        event.setCancelled(true);
+                        event.getPlayer().sendMessage(ChatColor.RED + "Ton rôle ne peut pas retirer ce coffre.");
+                        return;
+                    }
                     event.setDropItems(false);
                     ResourceFarmType type = getType(spot.getFarmTypeId()).orElse(null);
                     Location dropLoc = loc.clone().add(0.5, 0.5, 0.5);
@@ -358,6 +371,52 @@ public class FarmManager implements Listener {
                     return;
                 }
             }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onChestInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        Block clicked = event.getClickedBlock();
+        if (clicked == null) {
+            return;
+        }
+        Location loc = clicked.getLocation();
+        Clan targetClan = null;
+        for (Clan clan : plugin.clans().allClans()) {
+            for (BuildingSpot spot : clan.getSpots()) {
+                Location chest = spot.getFarmChestLocation();
+                if (chest == null || chest.getWorld() == null) {
+                    continue;
+                }
+                if (!chest.getWorld().equals(loc.getWorld())) {
+                    continue;
+                }
+                if (chest.getBlockX() == loc.getBlockX() && chest.getBlockY() == loc.getBlockY() && chest.getBlockZ() == loc.getBlockZ()) {
+                    targetClan = clan;
+                    break;
+                }
+            }
+            if (targetClan != null) {
+                break;
+            }
+        }
+
+        if (targetClan == null) {
+            return;
+        }
+
+        if (!targetClan.isMember(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "Ce coffre appartient à " + targetClan.getName() + ".");
+            return;
+        }
+
+        if (!targetClan.canAccessFarmChests(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "Ton rôle ne peut pas accéder aux coffres de ferme.");
         }
     }
 

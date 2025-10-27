@@ -4,6 +4,7 @@ import com.outlaw.clans.OutlawClansPlugin;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.Territory;
 import com.outlaw.clans.util.Keys;
+import com.outlaw.clans.util.TerrainFenceBuilder;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
@@ -119,7 +120,8 @@ public class ClaimStickListener implements Listener {
 
                 int cornerX = center.getBlockX() + sx * (phalf - 1);
                 int cornerZ = center.getBlockZ() + sz * (phalf - 1);
-                int cornerY = center.getBlockY() + 1;
+                int signOffset = Math.max(1, plugin.getConfig().getInt("building.sign_y_offset", 2));
+                int cornerY = center.getBlockY() + signOffset;
 
                 org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
                 placePlotSign(signLoc, dx, dz, i);
@@ -196,73 +198,9 @@ public class ClaimStickListener implements Listener {
         }
         org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
             for (Location base : bases) {
-                buildTerrainFences(base);
+                TerrainFenceBuilder.build(plugin, base);
             }
         }, delay);
-    }
-
-    private void buildTerrainFences(Location center) {
-        if (center == null || center.getWorld() == null) return;
-        if (!plugin.getConfig().getBoolean("building.fence.enabled", true)) return;
-
-        org.bukkit.World world = center.getWorld();
-        int plotSize = plugin.getConfig().getInt("building.plot_size", 35);
-        int offset = Math.max(0, plugin.getConfig().getInt("building.fence.offset", 1));
-        int half = plotSize / 2 + offset;
-        int minX = center.getBlockX() - half;
-        int maxX = center.getBlockX() + half;
-        int minZ = center.getBlockZ() - half;
-        int maxZ = center.getBlockZ() + half;
-
-        int baseYOffset = plugin.getConfig().getInt("building.fence.y_offset", 1);
-        String materialKey = plugin.getConfig().getString("building.fence.material", "OAK_FENCE");
-        org.bukkit.Material fenceMaterial = org.bukkit.Material.OAK_FENCE;
-        if (materialKey != null) {
-            org.bukkit.Material candidate = org.bukkit.Material.matchMaterial(materialKey.toUpperCase());
-            if (candidate != null) fenceMaterial = candidate;
-        }
-
-        int segment = Math.max(1, plugin.getConfig().getInt("building.fence.segment_length", 6));
-        int gap = Math.max(0, plugin.getConfig().getInt("building.fence.gap_length", 6));
-        int cycle = Math.max(segment + gap, 1);
-        int height = Math.max(1, plugin.getConfig().getInt("building.fence.height", 1));
-
-        int fenceY = center.getBlockY() + baseYOffset;
-        fenceY = Math.max(world.getMinHeight(), Math.min(fenceY, world.getMaxHeight() - height));
-
-        int index = 0;
-        for (int x = minX; x <= maxX; x++) {
-            applyFenceColumn(world, x, fenceY, minZ, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
-        }
-        for (int z = minZ + 1; z <= maxZ - 1; z++) {
-            applyFenceColumn(world, maxX, fenceY, z, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
-        }
-        for (int x = maxX; x >= minX; x--) {
-            applyFenceColumn(world, x, fenceY, maxZ, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
-        }
-        for (int z = maxZ - 1; z >= minZ + 1; z--) {
-            applyFenceColumn(world, minX, fenceY, z, height, fenceMaterial, shouldPlaceFence(index++, segment, cycle));
-        }
-    }
-
-    private void applyFenceColumn(org.bukkit.World world, int x, int y, int z, int height, org.bukkit.Material fenceMaterial, boolean place) {
-        for (int dy = 0; dy < height; dy++) {
-            org.bukkit.block.Block block = world.getBlockAt(x, y + dy, z);
-            if (place) {
-                block.setType(fenceMaterial, false);
-            } else {
-                org.bukkit.Material current = block.getType();
-                if (current == fenceMaterial || current.name().endsWith("_FENCE") || current.name().endsWith("_WALL")) {
-                    block.setType(org.bukkit.Material.AIR, false);
-                }
-            }
-        }
-    }
-
-    private boolean shouldPlaceFence(int index, int segment, int cycle) {
-        if (cycle <= 0) return true;
-        int mod = index % cycle;
-        return mod < segment;
     }
 
     private void orientSignTowardsCenter(Block block, int dx, int dz) {

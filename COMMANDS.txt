@@ -4,10 +4,11 @@
 /create clan npc
 /clan menu
 /clan show territory     | /show clan territoire
-/clan currency money     | /clan currency <ITEM_NAME>
+/clan currency xp        | /clan currency <ITEM_NAME>
+/clan upgrade
 /createclancost <amount>
 /clanterritorycost <amount>
-/clan money get|set <player> <amount>|give <player> <amount>
+/clanupgrade cost <amount>
 /deleteclan confirm
 /leaveclan confirm
 /clan terraform

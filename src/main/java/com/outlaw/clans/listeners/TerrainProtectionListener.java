@@ -35,16 +35,24 @@ public class TerrainProtectionListener implements Listener {
         if (player == null || location == null) {
             return;
         }
-        if (!isInsideProtectedTerrain(location)) {
+        Clan clan = findOwningClan(location);
+        if (clan == null) {
             return;
         }
-        event.setCancelled(true);
-        player.sendMessage(ChatColor.RED + "Impossible de modifier ce terrain du clan.");
+        if (!clan.isMember(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Ce terrain appartient à " + clan.getName() + ".");
+            return;
+        }
+        if (!clan.canBuild(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Ton rôle ne permet pas de modifier ce terrain.");
+        }
     }
 
-    private boolean isInsideProtectedTerrain(Location location) {
+    private Clan findOwningClan(Location location) {
         if (location.getWorld() == null) {
-            return false;
+            return null;
         }
         int plotSize = plugin.getConfig().getInt("building.plot_size", 35);
         int half = Math.max(1, plotSize / 2);
@@ -63,10 +71,10 @@ public class TerrainProtectionListener implements Listener {
                 int maxZ = base.getBlockZ() + half;
                 if (location.getBlockX() >= minX && location.getBlockX() <= maxX
                         && location.getBlockZ() >= minZ && location.getBlockZ() <= maxZ) {
-                    return true;
+                    return clan;
                 }
             }
         }
-        return false;
+        return null;
     }
 }
