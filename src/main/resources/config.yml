@@ -46,12 +46,15 @@ roles:
       permissions: []
 
 economy:
-  mode: "MONEY"         # MONEY ou ITEM
+  mode: "MONEY"         # MONEY, ITEM ou EXPERIENCE
   item_type: "DIAMOND"
   money:
     create_clan_cost: 500
     territory_cost: 1500
   item:
+    create_clan_cost: 500
+    territory_cost: 1500
+  experience:
     create_clan_cost: 500
     territory_cost: 1500
 
