@@ -47,7 +47,9 @@ public class ClanManager {
         java.util.UUID id = java.util.UUID.randomUUID();
         Clan c = new Clan(id, name, leader);
         applyRoleDefaults(c);
-        clans.put(id, c); playerClan.put(leader, id); saveAll(); return c;
+        clans.put(id, c); playerClan.put(leader, id);
+        plugin.currency().ensureClanAccount(id);
+        saveAll(); return c;
     }
 
     public void addMember(Clan clan, java.util.UUID player) {
@@ -87,6 +89,7 @@ public class ClanManager {
         } catch (Throwable ignored) {}
         clans.remove(clan.getId());
         for (java.util.UUID u : new ArrayList<>(clan.getMembers())) playerClan.remove(u);
+        plugin.currency().removeClanAccount(clan.getId());
         saveAll();
     }
 
@@ -231,7 +234,23 @@ public class ClanManager {
             }
             applyRoleDefaults(c);
             clans.put(id, c);
+            plugin.currency().ensureClanAccount(id);
         }
+    }
+
+    public Territory expandTerritory(Clan clan, int extraRadius) {
+        if (clan == null || extraRadius <= 0) {
+            return null;
+        }
+        Territory current = clan.getTerritory();
+        if (current == null) {
+            return null;
+        }
+        Territory updated = new Territory(current.getWorldName(), current.getRadius() + extraRadius,
+                current.getCenterX(), current.getCenterY(), current.getCenterZ());
+        clan.setTerritory(updated);
+        saveAll();
+        return updated;
     }
 
     private void loadRoleDefaults() {

@@ -7,6 +7,7 @@ import com.outlaw.clans.model.ClanRole;
 import com.outlaw.clans.model.ClanRolePermission;
 import com.outlaw.clans.model.ResourceFarmType;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.service.CurrencyService;
 import com.outlaw.clans.util.Keys;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -46,6 +47,11 @@ public class ClanMenuUI {
     private static final String ACTION_MEMBER_ASSIGN = "member-assign";
     private static final String ACTION_MEMBER_ROLE_SET = "member-role-set";
     private static final String ACTION_CLOSE = "close";
+    private static final String ACTION_CURRENCY_HOME = "currency-home";
+    private static final String ACTION_CURRENCY_DEPOSIT = "currency-deposit";
+    private static final String ACTION_CURRENCY_WITHDRAW = "currency-withdraw";
+    private static final String ACTION_CURRENCY_GIVE = "currency-give";
+    private static final String ACTION_CURRENCY_GIVE_SELECT = "currency-give-select";
 
     private final OutlawClansPlugin plugin;
     private final NamespacedKey plotKey;
@@ -86,6 +92,7 @@ public class ClanMenuUI {
 
         inv.setItem(22, territoryInfoItem(clan));
         inv.setItem(31, centerInfoItem());
+        inv.setItem(40, currencyOverviewItem(player, clan));
 
         if (clan.canManageRoles(player.getUniqueId())) {
             inv.setItem(26, actionItem(Material.NAME_TAG, ChatColor.LIGHT_PURPLE + "Gestion des rôles",
@@ -654,6 +661,143 @@ public class ClanMenuUI {
                 ChatColor.GRAY + "Les pancartes des terrains remplacent les NPC."));
         center.setItemMeta(meta);
         return center;
+    }
+
+    public void openCurrencyMenu(Player player, Clan clan) {
+        Inventory inv = baseInventory(player, clan, "Banque");
+        inv.setItem(45, actionItem(Material.ARROW, ChatColor.YELLOW + "Retour",
+                lore(ChatColor.GRAY + "Revenir à l'accueil."), ACTION_HOME));
+        inv.setItem(22, currencyBalanceItem(clan));
+        inv.setItem(20, currencyDepositButton());
+        inv.setItem(24, currencyWithdrawButton(clan.isLeader(player.getUniqueId())));
+        inv.setItem(29, currencyGiveButton(clan.isLeader(player.getUniqueId())));
+        player.openInventory(inv);
+    }
+
+    public void openCurrencyMemberSelect(Player player, Clan clan) {
+        Inventory inv = baseInventory(player, clan, "Don au membre");
+        inv.setItem(45, actionItem(Material.ARROW, ChatColor.YELLOW + "Retour",
+                lore(ChatColor.GRAY + "Revenir à la banque."), ACTION_CURRENCY_HOME));
+        inv.setItem(22, currencyBalanceItem(clan));
+
+        int[] slots = {
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33, 34,
+                37, 38, 39, 40, 41, 42, 43
+        };
+
+        int index = 0;
+        List<UUID> members = new ArrayList<>(clan.getMembers());
+        members.sort(new MemberComparator(clan));
+        for (UUID member : members) {
+            while (index < slots.length && slots[index] == 22) {
+                index++;
+            }
+            if (index >= slots.length) {
+                break;
+            }
+            inv.setItem(slots[index++], currencyRecipientItem(member, clan));
+        }
+
+        player.openInventory(inv);
+    }
+
+    private ItemStack currencyOverviewItem(Player player, Clan clan) {
+        ItemStack item = new ItemStack(Material.CHEST);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Banque du clan");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Solde: " + plugin.currency().formatAmount(plugin.currency().getClanBalance(clan.getId())));
+        lore.add(ChatColor.GRAY + "Mode: " + ChatColor.YELLOW + (plugin.currency().mode() == CurrencyService.Mode.EXP
+                ? "XP"
+                : plugin.currency().itemType().name()));
+        lore.add(ChatColor.YELLOW + "Clique pour gérer la monnaie.");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_HOME);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyBalanceItem(Clan clan) {
+        ItemStack item = new ItemStack(Material.PAPER);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Solde de clan");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Disponible: " + plugin.currency().formatAmount(plugin.currency().getClanBalance(clan.getId())));
+        lore.add(ChatColor.GRAY + "Mode: " + ChatColor.YELLOW + (plugin.currency().mode() == CurrencyService.Mode.EXP
+                ? "XP"
+                : plugin.currency().itemType().name()));
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyDepositButton() {
+        Material icon = plugin.currency().mode() == CurrencyService.Mode.EXP
+                ? Material.EXPERIENCE_BOTTLE
+                : plugin.currency().itemType();
+        ItemStack item = new ItemStack(icon);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GREEN + "Déposer");
+        meta.setLore(lore(ChatColor.GRAY + "Ajoute votre monnaie à la banque.",
+                ChatColor.GRAY + "Entrez le montant dans le chat."));
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_DEPOSIT);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyWithdrawButton(boolean canManage) {
+        if (!canManage) {
+            return infoItem(Material.BARRIER, ChatColor.RED + "Retirer",
+                    lore(ChatColor.GRAY + "Seul le leader peut retirer."));
+        }
+        ItemStack item = new ItemStack(Material.ENDER_CHEST);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Retirer");
+        meta.setLore(lore(ChatColor.GRAY + "Transfère la monnaie vers ton inventaire.",
+                ChatColor.GRAY + "Entrez le montant dans le chat."));
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_WITHDRAW);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyGiveButton(boolean canManage) {
+        if (!canManage) {
+            return infoItem(Material.BARRIER, ChatColor.RED + "Donner",
+                    lore(ChatColor.GRAY + "Seul le leader peut distribuer."));
+        }
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.AQUA + "Donner à un membre");
+        meta.setLore(lore(ChatColor.GRAY + "Choisis un membre à récompenser."));
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_GIVE);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyRecipientItem(UUID uuid, Clan clan) {
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta baseMeta = head.getItemMeta();
+        if (baseMeta instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(offlinePlayer);
+            baseMeta = skullMeta;
+        }
+        baseMeta.setDisplayName(ChatColor.AQUA + displayName(offlinePlayer, uuid));
+        List<String> lore = new ArrayList<>();
+        if (clan.getLeader().equals(uuid)) {
+            lore.add(ChatColor.GOLD + "Leader du clan");
+        }
+        lore.add(ChatColor.YELLOW + "Clique pour choisir le montant.");
+        if (!offlinePlayer.isOnline()) {
+            lore.add(ChatColor.GRAY + "(doit être en ligne pour recevoir)");
+        }
+        baseMeta.setLore(lore);
+        baseMeta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_GIVE_SELECT);
+        baseMeta.getPersistentDataContainer().set(memberKey, PersistentDataType.STRING, uuid.toString());
+        head.setItemMeta(baseMeta);
+        return head;
     }
 
     private ItemStack actionItem(Material material, String displayName, List<String> lore, String action) {

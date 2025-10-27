@@ -4,17 +4,19 @@ import com.outlaw.clans.listeners.ClaimStickListener;
 import com.outlaw.clans.listeners.ClanCenterInteractionListener;
 import com.outlaw.clans.listeners.TerrainProtectionListener;
 import com.outlaw.clans.service.ClanManager;
+import com.outlaw.clans.service.CurrencyPromptManager;
+import com.outlaw.clans.service.CurrencyService;
+import com.outlaw.clans.service.FarmManager;
 import com.outlaw.clans.service.NPCManager;
 import com.outlaw.clans.service.SchematicManager;
-import com.outlaw.clans.service.EconomyService;
 import com.outlaw.clans.service.TerraformService;
-import com.outlaw.clans.service.FarmManager;
 import com.outlaw.clans.ui.ClanMenuUI;
 import com.outlaw.clans.commands.CreateClanCommand;
 import com.outlaw.clans.commands.ClanMenuCommand;
 import com.outlaw.clans.commands.ShowTerritoryCommand;
 import com.outlaw.clans.commands.CreateClanCostCommand;
 import com.outlaw.clans.commands.ClanTerritoryCostCommand;
+import com.outlaw.clans.commands.ClanUpgradeCostCommand;
 import com.outlaw.clans.commands.DeleteClanCommand;
 import com.outlaw.clans.commands.LeaveClanCommand;
 import org.bukkit.Bukkit;
@@ -23,34 +25,40 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class OutlawClansPlugin extends JavaPlugin {
 
     private static OutlawClansPlugin instance;
-    private com.outlaw.clans.service.ClanManager clanManager;
-    private com.outlaw.clans.service.NPCManager npcManager;
-    private com.outlaw.clans.service.SchematicManager schematicManager;
-    private com.outlaw.clans.service.EconomyService economyService;
-    private com.outlaw.clans.service.TerraformService terraformService;
-    private com.outlaw.clans.service.FarmManager farmManager;
+    private ClanManager clanManager;
+    private NPCManager npcManager;
+    private SchematicManager schematicManager;
+    private CurrencyService currencyService;
+    private CurrencyPromptManager currencyPromptManager;
+    private TerraformService terraformService;
+    private FarmManager farmManager;
     private ClanMenuUI clanMenuUI;
 
     public static OutlawClansPlugin get() { return instance; }
     public ClanManager clans() { return clanManager; }
     public NPCManager npcs() { return npcManager; }
     public SchematicManager schematics() { return schematicManager; }
-    public EconomyService economy() { return economyService; }
+    public CurrencyService currency() { return currencyService; }
+    /** @deprecated Utiliser {@link #currency()} */
+    @Deprecated
+    public CurrencyService economy() { return currencyService; }
     public TerraformService terraform() { return terraformService; }
     public ClanMenuUI menuUI() { return clanMenuUI; }
     public FarmManager farms() { return farmManager; }
+    public CurrencyPromptManager currencyPrompts() { return currencyPromptManager; }
 
     @Override
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        this.currencyService = new CurrencyService(this);
         this.clanManager = new ClanManager(this);
         this.schematicManager = new SchematicManager(this);
-        this.economyService = new EconomyService(this);
         this.terraformService = new TerraformService(this);
         this.npcManager = new NPCManager(this);
         this.clanMenuUI = new ClanMenuUI(this);
         this.farmManager = new FarmManager(this);
+        this.currencyPromptManager = new CurrencyPromptManager(this);
         bootstrapSchematics();
 
         getCommand("create").setExecutor(new CreateClanCommand(this));
@@ -58,6 +66,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         getCommand("show").setExecutor(new ShowTerritoryCommand(this));
         getCommand("createclancost").setExecutor(new CreateClanCostCommand(this));
         getCommand("clanterritorycost").setExecutor(new ClanTerritoryCostCommand(this));
+        getCommand("clanupgrade").setExecutor(new ClanUpgradeCostCommand(this));
         getCommand("deleteclan").setExecutor(new DeleteClanCommand(this));
         getCommand("leaveclan").setExecutor(new LeaveClanCommand(this));
 
@@ -66,6 +75,7 @@ public class OutlawClansPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new TerrainProtectionListener(this), this);
         Bukkit.getPluginManager().registerEvents(npcManager, this);
         Bukkit.getPluginManager().registerEvents(farmManager, this);
+        Bukkit.getPluginManager().registerEvents(currencyPromptManager, this);
         getLogger().info("OutlawClans v0.3.8 enabled.");
     }
 
@@ -76,6 +86,7 @@ public class OutlawClansPlugin extends JavaPlugin {
             farmManager.shutdown();
         }
         clanManager.saveAll();
+        currencyService.saveBalances();
         getLogger().info("OutlawClans disabled.");
     }
 
