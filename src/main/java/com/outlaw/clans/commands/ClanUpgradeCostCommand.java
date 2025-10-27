@@ -18,17 +18,31 @@ public class ClanUpgradeCostCommand implements CommandExecutor {
             p.sendMessage(ChatColor.RED + "Permission manquante.");
             return true;
         }
-        if (args.length != 1) {
+        if (args.length == 0 || args.length > 2) {
             p.sendMessage(ChatColor.YELLOW + "Usage: /clanupgrade cost <montant>");
             return true;
         }
-        try {
-            int amount = Integer.parseInt(args[0]);
-            if (plugin.economy().mode() == com.outlaw.clans.service.EconomyService.Mode.ITEM) {
-                plugin.getConfig().set("economy.item.upgrade_cost", amount);
-            } else {
-                plugin.getConfig().set("economy.xp.upgrade_cost", amount);
+
+        String amountArg;
+        if (args.length == 2) {
+            if (!args[0].equalsIgnoreCase("cost")) {
+                p.sendMessage(ChatColor.YELLOW + "Usage: /clanupgrade cost <montant>");
+                return true;
             }
+            amountArg = args[1];
+        } else {
+            amountArg = args[0];
+        }
+
+        try {
+            int amount = Integer.parseInt(amountArg);
+            if (amount < 0) {
+                p.sendMessage(ChatColor.RED + "Le montant doit être positif.");
+                return true;
+            }
+
+            plugin.getConfig().set("economy.item.upgrade_cost", amount);
+            plugin.getConfig().set("economy.xp.upgrade_cost", amount);
             plugin.saveConfig();
             p.sendMessage(ChatColor.GREEN + "Coût d'amélioration du territoire: " + plugin.economy().formatAmount(amount));
         } catch (NumberFormatException ex) {
