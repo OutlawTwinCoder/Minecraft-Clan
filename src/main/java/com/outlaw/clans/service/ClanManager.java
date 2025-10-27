@@ -122,6 +122,7 @@ public class ClanManager {
             if (c.getDefaultRoleId() != null) {
                 clansCfg.set(path + ".roles_default", c.getDefaultRoleId());
             }
+            clansCfg.set(path + ".currency", c.getCurrencyBalance());
             if (!c.getMemberRoles().isEmpty()) {
                 for (Map.Entry<java.util.UUID, String> entry : c.getMemberRoles().entrySet()) {
                     clansCfg.set(path + ".member_roles." + entry.getKey(), entry.getValue());
@@ -169,6 +170,7 @@ public class ClanManager {
             String name = clansCfg.getString(base+".name","Clan");
             java.util.UUID leader = java.util.UUID.fromString(clansCfg.getString(base+".leader"));
             Clan c = new Clan(id, name, leader);
+            c.setCurrencyBalance(clansCfg.getInt(base+".currency", 0));
             for (String m : clansCfg.getStringList(base+".members")) {
                 try { java.util.UUID u = java.util.UUID.fromString(m); c.getMembers().add(u); playerClan.put(u, id); } catch (Exception ignored) {}
             }

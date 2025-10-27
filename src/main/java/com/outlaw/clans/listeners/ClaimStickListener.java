@@ -119,7 +119,7 @@ public class ClaimStickListener implements Listener {
 
                 int cornerX = center.getBlockX() + sx * (phalf - 1);
                 int cornerZ = center.getBlockZ() + sz * (phalf - 1);
-                int cornerY = center.getBlockY() + 1;
+                int cornerY = center.getBlockY() + 2;
 
                 org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
                 placePlotSign(signLoc, dx, dz, i);
