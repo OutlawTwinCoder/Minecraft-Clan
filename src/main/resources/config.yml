@@ -11,6 +11,7 @@ building:
   edge_margin: 12
   paste_y_offset: 1     # +1 bloc
   sign_y_offset: 2
+  sign_height_search: 5      # recherche vers le haut pour poser la pancarte sur la surface
   min_spacing: 40
   fence:
     enabled: true

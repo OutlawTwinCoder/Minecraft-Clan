@@ -126,7 +126,8 @@ public class NPCManager implements Listener {
         int price = OutlawClansPlugin.get().economy().costTerritory();
         String title = ChatColor.DARK_GREEN + "Achat de Territoire (" + OutlawClansPlugin.get().economy().formatAmount(price) + ")";
         Inventory inv = Bukkit.createInventory(p, 27, title);
-        inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire", "&7Prix: &e" + price));
+        inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire",
+                "&7Prix: &e" + OutlawClansPlugin.get().economy().formatAmount(price)));
         inv.setItem(15, named(Material.BARRIER, "&cFermer"));
         p.openInventory(inv);
     }

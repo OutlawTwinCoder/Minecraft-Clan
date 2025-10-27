@@ -18,12 +18,13 @@ public class ClanUpgradeCostCommand implements CommandExecutor {
             p.sendMessage(ChatColor.RED + "Permission manquante.");
             return true;
         }
-        if (args.length != 1) {
+        if (args.length == 0 || args.length > 2 || (args.length == 2 && !args[0].equalsIgnoreCase("cost"))) {
             p.sendMessage(ChatColor.YELLOW + "Usage: /clanupgrade cost <montant>");
             return true;
         }
+        String amountArg = args.length == 1 ? args[0] : args[1];
         try {
-            int amount = Integer.parseInt(args[0]);
+            int amount = Integer.parseInt(amountArg);
             if (plugin.economy().mode() == com.outlaw.clans.service.EconomyService.Mode.ITEM) {
                 plugin.getConfig().set("economy.item.upgrade_cost", amount);
             } else {
