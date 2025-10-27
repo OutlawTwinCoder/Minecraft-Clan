@@ -16,9 +16,9 @@ public class CreateClanCostCommand implements CommandExecutor {
         if (args.length != 1) { p.sendMessage(ChatColor.YELLOW+"Usage: /createclancost <amount>"); return true; }
         try {
             int amount = Integer.parseInt(args[0]);
-            if (plugin.getConfig().getString("economy.mode","MONEY").equalsIgnoreCase("MONEY"))
-                plugin.getConfig().set("economy.money.create_clan_cost", amount);
-            else plugin.getConfig().set("economy.item.create_clan_cost", amount);
+            if (plugin.economy().mode() == com.outlaw.clans.service.EconomyService.Mode.ITEM)
+                plugin.getConfig().set("economy.item.create_clan_cost", amount);
+            else plugin.getConfig().set("economy.xp.create_clan_cost", amount);
             plugin.saveConfig();
             p.sendMessage(ChatColor.GREEN+"Coût création clan: "+amount);
         } catch (NumberFormatException e) { p.sendMessage(ChatColor.RED+"Montant invalide."); }

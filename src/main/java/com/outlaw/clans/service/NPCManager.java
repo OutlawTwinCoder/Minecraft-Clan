@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
@@ -21,10 +22,25 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NPCManager implements Listener {
 
     public enum NpcType { TERRITORY_MERCHANT, BUILD_SPOT }
+
+    private enum CurrencyOperation { DEPOSIT, WITHDRAW, GIVE }
+
+    private static class PendingCurrencyAction {
+        private final UUID clanId;
+        private final CurrencyOperation operation;
+        private final UUID targetMember;
+
+        private PendingCurrencyAction(UUID clanId, CurrencyOperation operation, UUID targetMember) {
+            this.clanId = clanId;
+            this.operation = operation;
+            this.targetMember = targetMember;
+        }
+    }
 
     private final OutlawClansPlugin plugin;
     private final NamespacedKey npcKey;
@@ -39,6 +55,7 @@ public class NPCManager implements Listener {
     private final NamespacedKey clanMenuMemberKey;
     private final Map<UUID, NpcType> npcTypes = new HashMap<>();
     private final Map<UUID, List<UUID>> activeDisplays = new HashMap<>();
+    private final Map<UUID, PendingCurrencyAction> pendingCurrency = new ConcurrentHashMap<>();
 
     public NPCManager(OutlawClansPlugin plugin) {
         this.plugin = plugin;
@@ -169,6 +186,32 @@ public class NPCManager implements Listener {
         }
     }
 
+    @EventHandler
+    public void onCurrencyChat(AsyncPlayerChatEvent event) {
+        PendingCurrencyAction pending = pendingCurrency.get(event.getPlayer().getUniqueId());
+        if (pending == null) {
+            return;
+        }
+        event.setCancelled(true);
+        String message = event.getMessage().trim();
+        if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("annuler")) {
+            pendingCurrency.remove(event.getPlayer().getUniqueId());
+            event.getPlayer().sendMessage(ChatColor.YELLOW + "Transaction annulée.");
+            Bukkit.getScheduler().runTask(plugin, () -> plugin.clans().getClan(pending.clanId)
+                    .ifPresent(clan -> plugin.menuUI().openCurrencyMenu(event.getPlayer(), clan)));
+            return;
+        }
+        int amount;
+        try {
+            amount = Integer.parseInt(message);
+        } catch (NumberFormatException ex) {
+            event.getPlayer().sendMessage(ChatColor.RED + "Montant invalide. Entre un nombre positif ou 'cancel'.");
+            return;
+        }
+        int finalAmount = amount;
+        Bukkit.getScheduler().runTask(plugin, () -> completeCurrencyTransaction(event.getPlayer(), pending, finalAmount));
+    }
+
     private void handleClanMenuAction(Player player, ItemMeta meta, String action) {
         if (action == null) {
             return;
@@ -239,6 +282,45 @@ public class NPCManager implements Listener {
                         plugin.farms().buildStructure(player, clan, idx, optType.get(), schematic);
                         plugin.menuUI().openTerrainSettings(player, clan, idx);
                     }
+                    case "currency" -> plugin.menuUI().openCurrencyMenu(player, clan);
+                    case "currency-deposit" -> promptCurrencyAmount(player, clan, CurrencyOperation.DEPOSIT, null);
+                    case "currency-withdraw" -> {
+                        if (!canManageBank(clan, player)) {
+                            player.sendMessage(ChatColor.RED + "Seul le leader peut retirer des fonds.");
+                            return;
+                        }
+                        promptCurrencyAmount(player, clan, CurrencyOperation.WITHDRAW, null);
+                    }
+                    case "currency-give" -> {
+                        if (!canManageBank(clan, player)) {
+                            player.sendMessage(ChatColor.RED + "Seul le leader peut donner des fonds.");
+                            return;
+                        }
+                        plugin.menuUI().openCurrencyMemberSelect(player, clan);
+                    }
+                    case "currency-give-member" -> {
+                        if (!canManageBank(clan, player)) {
+                            player.sendMessage(ChatColor.RED + "Seul le leader peut donner des fonds.");
+                            return;
+                        }
+                        String memberId = meta.getPersistentDataContainer().get(clanMenuMemberKey, PersistentDataType.STRING);
+                        if (memberId == null) {
+                            player.sendMessage(ChatColor.RED + "Sélection invalide.");
+                            return;
+                        }
+                        try {
+                            UUID target = UUID.fromString(memberId);
+                            if (!clan.isMember(target)) {
+                                player.sendMessage(ChatColor.RED + "Ce joueur n'est pas dans le clan.");
+                                return;
+                            }
+                            promptCurrencyAmount(player, clan, CurrencyOperation.GIVE, target);
+                        } catch (IllegalArgumentException ex) {
+                            player.sendMessage(ChatColor.RED + "Sélection invalide.");
+                        }
+                    }
+                    case "territory-info" -> plugin.menuUI().openTerritoryInfo(player, clan);
+                    case "territory-upgrade" -> attemptTerritoryUpgrade(player, clan);
                     case "terrain-set-resource" -> {
                         if (!clan.canManageTerrains(player.getUniqueId())) {
                             player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas modifier les terrains.");
@@ -371,6 +453,169 @@ public class NPCManager implements Listener {
                 }
             }
         }
+    }
+
+    private boolean canManageBank(Clan clan, Player player) {
+        return clan.isLeader(player.getUniqueId());
+    }
+
+    private void promptCurrencyAmount(Player player, Clan clan, CurrencyOperation operation, UUID targetMember) {
+        pendingCurrency.put(player.getUniqueId(), new PendingCurrencyAction(clan.getId(), operation, targetMember));
+        player.closeInventory();
+        String baseMessage;
+        switch (operation) {
+            case DEPOSIT -> baseMessage = ChatColor.AQUA + "Montant à déposer dans la banque du clan";
+            case WITHDRAW -> baseMessage = ChatColor.AQUA + "Montant à retirer de la banque du clan";
+            case GIVE -> {
+                String targetName = targetMember != null ? ChatColor.YELLOW + Optional.ofNullable(Bukkit.getOfflinePlayer(targetMember).getName()).orElse(targetMember.toString()) + ChatColor.AQUA : ChatColor.AQUA + "un membre";
+                baseMessage = ChatColor.AQUA + "Montant à donner à " + targetName;
+            }
+            default -> baseMessage = ChatColor.AQUA + "Montant";
+        }
+        player.sendMessage(baseMessage + ChatColor.GRAY + " (écris 'cancel' pour annuler)");
+        player.sendMessage(ChatColor.GRAY + "Ton solde: " + ChatColor.YELLOW + plugin.economy().getPlayerCurrency(player) + ChatColor.GRAY + " " + plugin.economy().currencyName());
+        player.sendMessage(ChatColor.GRAY + "Solde du clan: " + ChatColor.YELLOW + clan.getCurrencyBalance());
+    }
+
+    private void completeCurrencyTransaction(Player player, PendingCurrencyAction pending, int amount) {
+        if (pending == null) {
+            return;
+        }
+        if (amount <= 0) {
+            player.sendMessage(ChatColor.RED + "Le montant doit être supérieur à 0.");
+            pendingCurrency.put(player.getUniqueId(), pending);
+            return;
+        }
+
+        Optional<Clan> optionalClan = plugin.clans().getClan(pending.clanId);
+        if (optionalClan.isEmpty()) {
+            player.sendMessage(ChatColor.RED + "Clan introuvable.");
+            return;
+        }
+        Clan clan = optionalClan.get();
+        pendingCurrency.remove(player.getUniqueId());
+
+        switch (pending.operation) {
+            case DEPOSIT -> {
+                if (!plugin.economy().hasPlayerCurrency(player, amount)) {
+                    player.sendMessage(ChatColor.RED + "Tu n'as pas assez de " + plugin.economy().currencyName() + ".");
+                    player.sendMessage(ChatColor.GRAY + "Entre un nouveau montant ou 'cancel'.");
+                    pendingCurrency.put(player.getUniqueId(), pending);
+                    return;
+                }
+                plugin.economy().withdrawPlayerCurrency(player, amount);
+                clan.addCurrency(amount);
+                plugin.clans().saveAll();
+                player.sendMessage(ChatColor.GREEN + "Tu as déposé " + plugin.economy().formatAmount(amount) + ".");
+            }
+            case WITHDRAW -> {
+                if (!clan.withdrawCurrency(amount)) {
+                    player.sendMessage(ChatColor.RED + "Solde du clan insuffisant.");
+                    player.sendMessage(ChatColor.GRAY + "Entre un nouveau montant ou 'cancel'.");
+                    pendingCurrency.put(player.getUniqueId(), pending);
+                    return;
+                }
+                plugin.economy().givePlayerCurrency(player, amount);
+                plugin.clans().saveAll();
+                player.sendMessage(ChatColor.GREEN + "Tu as retiré " + plugin.economy().formatAmount(amount) + ".");
+            }
+            case GIVE -> {
+                if (pending.targetMember == null) {
+                    player.sendMessage(ChatColor.RED + "Aucun membre sélectionné.");
+                    plugin.menuUI().openCurrencyMenu(player, clan);
+                    return;
+                }
+                if (!clan.isMember(pending.targetMember)) {
+                    player.sendMessage(ChatColor.RED + "Ce joueur n'est plus dans le clan.");
+                    plugin.menuUI().openCurrencyMenu(player, clan);
+                    return;
+                }
+                Player target = Bukkit.getPlayer(pending.targetMember);
+                if (target == null) {
+                    player.sendMessage(ChatColor.RED + "Ce joueur doit être en ligne pour recevoir la récompense.");
+                    plugin.menuUI().openCurrencyMemberSelect(player, clan);
+                    return;
+                }
+                if (!clan.withdrawCurrency(amount)) {
+                    player.sendMessage(ChatColor.RED + "Solde du clan insuffisant.");
+                    player.sendMessage(ChatColor.GRAY + "Entre un nouveau montant ou 'cancel'.");
+                    pendingCurrency.put(player.getUniqueId(), pending);
+                    return;
+                }
+                plugin.economy().givePlayerCurrency(target, amount);
+                plugin.clans().saveAll();
+                String formatted = plugin.economy().formatAmount(amount);
+                player.sendMessage(ChatColor.GREEN + "Tu as donné " + formatted + ChatColor.GREEN + " à " + ChatColor.YELLOW + target.getName() + ChatColor.GREEN + ".");
+                target.sendMessage(ChatColor.AQUA + "Ton clan t'a offert " + formatted + ChatColor.AQUA + ".");
+            }
+        }
+
+        plugin.menuUI().openCurrencyMenu(player, clan);
+    }
+
+    private void attemptTerritoryUpgrade(Player player, Clan clan) {
+        if (!clan.hasTerritory()) {
+            player.sendMessage(ChatColor.RED + "Le clan n'a pas de territoire.");
+            plugin.menuUI().openTerritoryInfo(player, clan);
+            return;
+        }
+        if (!clan.canManageTerrains(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas améliorer le territoire.");
+            return;
+        }
+
+        int cost = plugin.getConfig().getInt("territory.upgrade_cost", 2500);
+        if (!clan.withdrawCurrency(cost)) {
+            player.sendMessage(ChatColor.RED + "Solde du clan insuffisant: " + clan.getCurrencyBalance() + " / " + cost + ".");
+            plugin.menuUI().openTerritoryInfo(player, clan);
+            return;
+        }
+
+        Territory current = clan.getTerritory();
+        Territory upgraded = new Territory(current.getWorldName(), current.getRadius() + 50, current.getCenterX(), current.getCenterY(), current.getCenterZ());
+        clan.setTerritory(upgraded);
+        plugin.clans().saveAll();
+
+        for (UUID memberId : clan.getMembers()) {
+            Player online = Bukkit.getPlayer(memberId);
+            if (online != null) {
+                online.sendMessage(ChatColor.GREEN + "Le territoire du clan a été agrandi. Nouveau rayon: " + upgraded.getRadius() + ".");
+            }
+        }
+
+        int thickness = plugin.getConfig().getInt("terraform.thickness", 10);
+        int clearAbove = plugin.getConfig().getInt("terraform.clear_above", 24);
+        int perTick = plugin.getConfig().getInt("terraform.blocks_per_tick", 1500);
+        Material topMat;
+        Material foundation;
+        try {
+            topMat = Material.valueOf(plugin.getConfig().getString("terraform.surface_top_material", "GRASS_BLOCK").toUpperCase());
+        } catch (Exception ex) {
+            topMat = Material.GRASS_BLOCK;
+        }
+        try {
+            foundation = Material.valueOf(plugin.getConfig().getString("terraform.material", "DIRT").toUpperCase());
+        } catch (Exception ex) {
+            foundation = Material.DIRT;
+        }
+
+        plugin.terraform().buildTerritoryPlate(upgraded, upgraded.getCenterY(), thickness, topMat, foundation);
+
+        Runnable featherTask = () -> {
+            if (plugin.getConfig().getBoolean("feather.enabled", true)) {
+                int width = plugin.getConfig().getInt("feather.width", 20);
+                plugin.terraform().featherTerritoryEdges(upgraded, upgraded.getCenterY(), thickness, topMat, foundation, width);
+            }
+        };
+
+        if (plugin.getConfig().getBoolean("terraform.full_territory", true)) {
+            long delay = plugin.terraform().estimateTicksForPlatform(upgraded.getRadius() * 2 + 1, thickness, clearAbove, perTick) + 20L;
+            Bukkit.getScheduler().runTaskLater(plugin, featherTask, delay);
+        } else {
+            featherTask.run();
+        }
+
+        plugin.menuUI().openTerritoryInfo(player, clan);
     }
 
     private void giveClaimStick(Player p) {

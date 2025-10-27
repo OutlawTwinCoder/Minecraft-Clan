@@ -2,6 +2,7 @@
 territory:
   price: 0
   radius: 75           # 150x150
+  upgrade_cost: 2500
   world: "world"
 
 building:
@@ -46,9 +47,9 @@ roles:
       permissions: []
 
 economy:
-  mode: "MONEY"         # MONEY ou ITEM
+  mode: "XP"            # XP ou ITEM
   item_type: "DIAMOND"
-  money:
+  xp:
     create_clan_cost: 500
     territory_cost: 1500
   item:

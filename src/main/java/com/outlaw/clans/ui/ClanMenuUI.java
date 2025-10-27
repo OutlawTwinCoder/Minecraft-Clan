@@ -7,6 +7,7 @@ import com.outlaw.clans.model.ClanRole;
 import com.outlaw.clans.model.ClanRolePermission;
 import com.outlaw.clans.model.ResourceFarmType;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.service.EconomyService;
 import com.outlaw.clans.util.Keys;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -45,6 +46,13 @@ public class ClanMenuUI {
     private static final String ACTION_ROLE_TOGGLE = "role-toggle";
     private static final String ACTION_MEMBER_ASSIGN = "member-assign";
     private static final String ACTION_MEMBER_ROLE_SET = "member-role-set";
+    private static final String ACTION_CURRENCY = "currency";
+    private static final String ACTION_CURRENCY_DEPOSIT = "currency-deposit";
+    private static final String ACTION_CURRENCY_WITHDRAW = "currency-withdraw";
+    private static final String ACTION_CURRENCY_GIVE = "currency-give";
+    private static final String ACTION_CURRENCY_GIVE_MEMBER = "currency-give-member";
+    private static final String ACTION_TERRITORY_INFO = "territory-info";
+    private static final String ACTION_TERRITORY_UPGRADE = "territory-upgrade";
     private static final String ACTION_CLOSE = "close";
 
     private final OutlawClansPlugin plugin;
@@ -84,6 +92,7 @@ public class ClanMenuUI {
         inv.setItem(24, actionItem(Material.CRAFTING_TABLE, ChatColor.GOLD + "Gestion des terrains",
                 lore(ChatColor.GRAY + "Choisir les bâtiments, coffres et ressources."), ACTION_TERRAINS));
 
+        inv.setItem(21, currencyMenuItem(clan));
         inv.setItem(22, territoryInfoItem(clan));
         inv.setItem(31, centerInfoItem());
 
@@ -118,6 +127,86 @@ public class ClanMenuUI {
         } else {
             for (int i = 0; i < members.size() && i < slots.length; i++) {
                 inv.setItem(slots[i], memberItem(members.get(i), clan, canManageRoles));
+            }
+        }
+
+        player.openInventory(inv);
+    }
+
+    public void openCurrencyMenu(Player player, Clan clan) {
+        Inventory inv = baseInventory(player, clan, "Banque");
+        inv.setItem(45, actionItem(Material.ARROW, ChatColor.YELLOW + "Retour",
+                lore(ChatColor.GRAY + "Revenir au menu principal."), ACTION_HOME));
+
+        inv.setItem(22, currencyBalanceItem(clan));
+        inv.setItem(24, playerCurrencyItem(player));
+
+        inv.setItem(30, actionItem(Material.LIME_CONCRETE, ChatColor.GREEN + "Déposer",
+                lore(ChatColor.GRAY + "Transférer ton " + plugin.economy().currencyName() + " vers la banque du clan.",
+                        ChatColor.YELLOW + "Clique pour choisir un montant."), ACTION_CURRENCY_DEPOSIT));
+
+        boolean canWithdraw = clan.isLeader(player.getUniqueId());
+        if (canWithdraw) {
+            inv.setItem(32, actionItem(Material.RED_CONCRETE, ChatColor.RED + "Retirer",
+                    lore(ChatColor.GRAY + "Prendre dans la banque du clan.",
+                            ChatColor.YELLOW + "Clique pour choisir un montant."), ACTION_CURRENCY_WITHDRAW));
+            inv.setItem(34, actionItem(Material.PLAYER_HEAD, ChatColor.AQUA + "Donner à un membre",
+                    lore(ChatColor.GRAY + "Prendre dans la banque du clan et donner à un membre.",
+                            ChatColor.YELLOW + "Clique pour choisir un joueur."), ACTION_CURRENCY_GIVE));
+        } else {
+            inv.setItem(32, infoItem(Material.BARRIER, ChatColor.RED + "Retrait verrouillé",
+                    lore(ChatColor.GRAY + "Seul le leader peut retirer.")));
+            inv.setItem(34, infoItem(Material.BARRIER, ChatColor.RED + "Don verrouillé",
+                    lore(ChatColor.GRAY + "Seul le leader peut donner des fonds.")));
+        }
+
+        player.openInventory(inv);
+    }
+
+    public void openCurrencyMemberSelect(Player player, Clan clan) {
+        Inventory inv = baseInventory(player, clan, "Donner");
+        inv.setItem(45, actionItem(Material.ARROW, ChatColor.YELLOW + "Retour",
+                lore(ChatColor.GRAY + "Revenir à la banque."), ACTION_CURRENCY));
+
+        List<UUID> members = new ArrayList<>(clan.getMembers());
+        members.sort(new MemberComparator(clan));
+
+        int[] slots = {
+                10, 11, 12, 13, 14, 15, 16,
+                19, 20, 21, 22, 23, 24, 25,
+                28, 29, 30, 31, 32, 33, 34,
+                37, 38, 39, 40, 41, 42, 43
+        };
+
+        if (members.isEmpty()) {
+            inv.setItem(22, infoItem(Material.BARRIER, ChatColor.RED + "Aucun membre",
+                    lore(ChatColor.GRAY + "Invite des joueurs pour agrandir ton clan.")));
+        } else {
+            for (int i = 0; i < members.size() && i < slots.length; i++) {
+                inv.setItem(slots[i], currencyMemberItem(members.get(i), clan));
+            }
+        }
+
+        player.openInventory(inv);
+    }
+
+    public void openTerritoryInfo(Player player, Clan clan) {
+        Inventory inv = baseInventory(player, clan, "Territoire");
+        inv.setItem(45, actionItem(Material.ARROW, ChatColor.YELLOW + "Retour",
+                lore(ChatColor.GRAY + "Revenir au menu principal."), ACTION_HOME));
+
+        inv.setItem(22, territoryDetailsItem(clan));
+
+        if (!clan.hasTerritory()) {
+            inv.setItem(24, infoItem(Material.BARRIER, ChatColor.RED + "Aucun territoire",
+                    lore(ChatColor.GRAY + "Achetez un territoire auprès du courtier.")));
+        } else {
+            boolean canUpgrade = clan.canManageTerrains(player.getUniqueId());
+            if (canUpgrade) {
+                inv.setItem(24, territoryUpgradeItem(clan));
+            } else {
+                inv.setItem(24, infoItem(Material.BARRIER, ChatColor.RED + "Amélioration verrouillée",
+                        lore(ChatColor.GRAY + "Seul le leader ou un rôle autorisé peut améliorer.")));
             }
         }
 
@@ -554,6 +643,80 @@ public class ClanMenuUI {
         return head;
     }
 
+    private ItemStack currencyMemberItem(UUID uuid, Clan clan) {
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta meta = head.getItemMeta();
+        if (meta instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(offlinePlayer);
+            meta = skullMeta;
+        }
+
+        meta.setDisplayName(ChatColor.AQUA + displayName(offlinePlayer, uuid));
+        List<String> lore = new ArrayList<>();
+        if (clan.getLeader().equals(uuid)) {
+            lore.add(ChatColor.GOLD + "Leader du clan");
+        } else {
+            String roleId = clan.getRoleId(uuid);
+            String roleName = roleId != null && clan.getRole(roleId) != null
+                    ? clan.getRole(roleId).getDisplayName()
+                    : ChatColor.GRAY + "Aucun rôle";
+            lore.add(ChatColor.GRAY + "Rôle: " + ChatColor.RESET + roleName);
+        }
+        Player online = Bukkit.getPlayer(uuid);
+        lore.add((online != null ? ChatColor.GREEN + "En ligne" : ChatColor.GRAY + "Hors ligne"));
+        lore.add(ChatColor.YELLOW + "Clique pour donner une récompense.");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY_GIVE_MEMBER);
+        meta.getPersistentDataContainer().set(memberKey, PersistentDataType.STRING, uuid.toString());
+        head.setItemMeta(meta);
+        return head;
+    }
+
+    private ItemStack currencyMenuItem(Clan clan) {
+        ItemStack item = new ItemStack(Material.CHEST);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Banque du clan");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Solde: " + ChatColor.YELLOW + clan.getCurrencyBalance() + ChatColor.GRAY + " " + plugin.economy().currencyName());
+        lore.add(ChatColor.YELLOW + "Clique pour gérer la banque.");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_CURRENCY);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack currencyBalanceItem(Clan clan) {
+        ItemStack item = new ItemStack(Material.ENDER_CHEST);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Solde du clan");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Solde actuel: " + ChatColor.YELLOW + clan.getCurrencyBalance() + ChatColor.GRAY + " " + plugin.economy().currencyName());
+        lore.add(ChatColor.GRAY + "Mode: " + ChatColor.YELLOW + (plugin.economy().mode() == EconomyService.Mode.XP ? "XP" : plugin.economy().itemType().name()));
+        lore.add(ChatColor.DARK_GRAY + "---");
+        lore.add(ChatColor.YELLOW + "Utilise les boutons pour déposer ou retirer.");
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack playerCurrencyItem(Player player) {
+        EconomyService.Mode mode = plugin.economy().mode();
+        ItemStack item = new ItemStack(mode == EconomyService.Mode.XP ? Material.EXPERIENCE_BOTTLE : plugin.economy().itemType());
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.AQUA + "Tes ressources");
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Tu possèdes: " + ChatColor.YELLOW + plugin.economy().getPlayerCurrency(player) + ChatColor.GRAY + " " + plugin.economy().currencyName());
+        if (mode == EconomyService.Mode.XP) {
+            lore.add(ChatColor.GRAY + "Niveau: " + ChatColor.YELLOW + player.getLevel());
+        }
+        lore.add(ChatColor.DARK_GRAY + "---");
+        lore.add(ChatColor.YELLOW + "Tape un montant dans le chat après avoir cliqué.");
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private ItemStack terrainItem(BuildingSpot spot, int index) {
         ItemStack item = new ItemStack(Material.GRASS_BLOCK);
         ItemMeta meta = item.getItemMeta();
@@ -636,14 +799,58 @@ public class ClanMenuUI {
         Territory territory = clan.getTerritory();
         if (territory == null) {
             lore.add(ChatColor.RED + "Non défini");
+            lore.add(ChatColor.GRAY + "Achetez un territoire auprès du PNJ.");
         } else {
             lore.add(ChatColor.GRAY + "Monde: " + territory.getWorldName());
             lore.add(ChatColor.GRAY + "Centre: " + territory.getCenterX() + ", " + territory.getCenterY() + ", " + territory.getCenterZ());
             lore.add(ChatColor.GRAY + "Rayon: " + territory.getRadius());
+            lore.add(ChatColor.YELLOW + "Clique pour plus d'informations.");
+        }
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_TERRITORY_INFO);
+        info.setItemMeta(meta);
+        return info;
+    }
+
+    private ItemStack territoryDetailsItem(Clan clan) {
+        ItemStack info = new ItemStack(Material.MAP);
+        ItemMeta meta = info.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Détails du territoire");
+        List<String> lore = new ArrayList<>();
+        Territory territory = clan.getTerritory();
+        if (territory == null) {
+            lore.add(ChatColor.RED + "Aucun territoire");
+            lore.add(ChatColor.GRAY + "Achetez un territoire auprès du courtier.");
+        } else {
+            lore.add(ChatColor.GRAY + "Monde: " + territory.getWorldName());
+            lore.add(ChatColor.GRAY + "Centre: " + territory.getCenterX() + ", " + territory.getCenterY() + ", " + territory.getCenterZ());
+            lore.add(ChatColor.GRAY + "Rayon actuel: " + ChatColor.YELLOW + territory.getRadius());
+            lore.add(ChatColor.GRAY + "Taille: " + ChatColor.YELLOW + (territory.getRadius() * 2 + 1) + ChatColor.GRAY + " x " + ChatColor.YELLOW + (territory.getRadius() * 2 + 1));
         }
         meta.setLore(lore);
         info.setItemMeta(meta);
         return info;
+    }
+
+    private ItemStack territoryUpgradeItem(Clan clan) {
+        ItemStack item = new ItemStack(Material.NETHER_STAR);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GREEN + "Améliorer le territoire");
+        List<String> lore = new ArrayList<>();
+        Territory territory = clan.getTerritory();
+        int cost = plugin.getConfig().getInt("territory.upgrade_cost", 2500);
+        if (territory != null) {
+            lore.add(ChatColor.GRAY + "Nouveau rayon: " + ChatColor.YELLOW + (territory.getRadius() + 50));
+            lore.add(ChatColor.GRAY + "Nouvelle taille: " + ChatColor.YELLOW + ((territory.getRadius() + 50) * 2 + 1) + ChatColor.GRAY + " x " + ChatColor.YELLOW + ((territory.getRadius() + 50) * 2 + 1));
+        }
+        lore.add(ChatColor.GRAY + "Coût: " + ChatColor.YELLOW + cost + ChatColor.GRAY + " " + plugin.economy().currencyName());
+        lore.add(ChatColor.GRAY + "Solde du clan: " + ChatColor.YELLOW + clan.getCurrencyBalance());
+        lore.add(ChatColor.DARK_GRAY + "---");
+        lore.add(ChatColor.YELLOW + "Clique pour lancer l'amélioration.");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, ACTION_TERRITORY_UPGRADE);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack centerInfoItem() {
