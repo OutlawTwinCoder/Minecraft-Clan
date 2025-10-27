@@ -126,13 +126,15 @@ public class ClaimStickListener implements Listener {
                 org.bukkit.World world = center.getWorld();
                 if (world != null) {
                     org.bukkit.block.Block target = world.getBlockAt(cornerX, cornerY, cornerZ);
-                    int maxRaise = 5;
+                    int maxRaise = 6;
                     for (int i = 0; i < maxRaise; i++) {
+                        boolean baseClear = target.isEmpty() || target.isPassable();
                         org.bukkit.block.Block above = target.getRelative(0, 1, 0);
-                        if (above.isEmpty() || above.isPassable()) {
+                        boolean headClear = above.isEmpty() || above.isPassable();
+                        if (baseClear && headClear) {
                             break;
                         }
-                        if (cornerY >= world.getMaxHeight() - 1) {
+                        if (cornerY >= world.getMaxHeight() - 2) {
                             break;
                         }
                         cornerY++;

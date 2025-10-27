@@ -36,11 +36,13 @@ public class ClanUpgradeCostCommand implements CommandExecutor {
 
         try {
             int amount = Integer.parseInt(amountArg);
-            if (plugin.economy().mode() == com.outlaw.clans.service.EconomyService.Mode.ITEM) {
-                plugin.getConfig().set("economy.item.upgrade_cost", amount);
-            } else {
-                plugin.getConfig().set("economy.xp.upgrade_cost", amount);
+            if (amount < 0) {
+                p.sendMessage(ChatColor.RED + "Le montant doit être positif.");
+                return true;
             }
+
+            plugin.getConfig().set("economy.item.upgrade_cost", amount);
+            plugin.getConfig().set("economy.xp.upgrade_cost", amount);
             plugin.saveConfig();
             p.sendMessage(ChatColor.GREEN + "Coût d'amélioration du territoire: " + plugin.economy().formatAmount(amount));
         } catch (NumberFormatException ex) {
