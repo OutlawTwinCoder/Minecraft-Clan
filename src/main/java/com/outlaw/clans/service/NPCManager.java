@@ -5,6 +5,7 @@ import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.ClanRole;
 import com.outlaw.clans.model.ClanRolePermission;
 import com.outlaw.clans.model.Territory;
+import com.outlaw.clans.service.CurrencyPromptManager;
 import com.outlaw.clans.util.Keys;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -118,12 +119,14 @@ public class NPCManager implements Listener {
     }
 
     private void openTerritoryShop(Player p) {
-        String title = ChatColor.DARK_GREEN + "Achat de Territoire (" + (OutlawClansPlugin.get().economy().mode()==com.outlaw.clans.service.EconomyService.Mode.MONEY
-                ? OutlawClansPlugin.get().economy().costTerritory() + "$"
-                : OutlawClansPlugin.get().economy().costTerritory() + " " + OutlawClansPlugin.get().economy().itemType().name()) + ")";
+        int price = OutlawClansPlugin.get().currency().costTerritory();
+        String priceLabel = price > 0
+                ? ChatColor.stripColor(OutlawClansPlugin.get().currency().formatAmount(price))
+                : "Gratuit";
+        String title = ChatColor.DARK_GREEN + "Achat de Territoire (" + priceLabel + ChatColor.DARK_GREEN + ")";
         Inventory inv = Bukkit.createInventory(p, 27, title);
-        int price = OutlawClansPlugin.get().economy().costTerritory();
-        inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire", "&7Prix: &e" + price));
+        String loreLine = price > 0 ? "&7Prix: &e" + priceLabel : "&7Prix: &aGratuit";
+        inv.setItem(11, named(Material.EMERALD_BLOCK, "&aAcheter un Territoire", loreLine));
         inv.setItem(15, named(Material.BARRIER, "&cFermer"));
         p.openInventory(inv);
     }
@@ -145,7 +148,7 @@ public class NPCManager implements Listener {
                 if (!clan.isLeader(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Seul le leader peut acheter un territoire."); return; }
                 if (clan.hasTerritory()) { p.sendMessage(ChatColor.YELLOW + "Votre clan possède déjà un territoire."); return; }
 
-                if (!OutlawClansPlugin.get().economy().chargeTerritory(p)) { p.sendMessage(ChatColor.RED+"Fonds insuffisants."); return; }
+                if (!OutlawClansPlugin.get().currency().chargeTerritory(p)) { p.sendMessage(ChatColor.RED+"Fonds insuffisants."); return; }
                 giveClaimStick(p);
                 p.closeInventory();
                 p.sendMessage(ChatColor.GREEN + "Achat validé. Vous avez reçu le Claim Clan Stick.");
@@ -176,6 +179,46 @@ public class NPCManager implements Listener {
 
         switch (action) {
             case "close" -> player.closeInventory();
+            case "currency-home" -> {
+                plugin.menuUI().openCurrencyMenu(player, clan);
+            }
+            case "currency-deposit" -> {
+                plugin.currencyPrompts().requestAmount(player, clan, CurrencyPromptManager.Action.DEPOSIT, null);
+                player.closeInventory();
+            }
+            case "currency-withdraw" -> {
+                if (!clan.isLeader(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Seul le leader peut retirer des fonds.");
+                    return;
+                }
+                plugin.currencyPrompts().requestAmount(player, clan, CurrencyPromptManager.Action.WITHDRAW, null);
+                player.closeInventory();
+            }
+            case "currency-give" -> {
+                if (!clan.isLeader(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Seul le leader peut distribuer des fonds.");
+                    return;
+                }
+                plugin.menuUI().openCurrencyMemberSelect(player, clan);
+            }
+            case "currency-give-select" -> {
+                if (!clan.isLeader(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Seul le leader peut distribuer des fonds.");
+                    return;
+                }
+                String memberId = meta.getPersistentDataContainer().get(clanMenuMemberKey, PersistentDataType.STRING);
+                if (memberId == null) {
+                    player.sendMessage(ChatColor.RED + "Sélection invalide.");
+                    return;
+                }
+                try {
+                    UUID target = UUID.fromString(memberId);
+                    plugin.currencyPrompts().requestAmount(player, clan, CurrencyPromptManager.Action.GIVE, target);
+                    player.closeInventory();
+                } catch (IllegalArgumentException ex) {
+                    player.sendMessage(ChatColor.RED + "Membre invalide.");
+                }
+            }
             case "home", "members", "terrains", "terrain-settings", "terrain-buildings", "terrain-resources",
                     "terrain-select-type", "terrain-select-schematic", "terrain-set-resource", "roles",
                     "role-settings", "role-toggle", "member-assign", "member-role-set" -> {

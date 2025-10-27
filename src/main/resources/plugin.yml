@@ -12,7 +12,7 @@ commands:
     permission: outlawclans.create
   clan:
     description: Ouvre le menu du clan et outils admin
-    usage: /clan menu | /clan show territory | /clan currency | /clan money | /clan terraform
+    usage: /clan menu | /clan show territory | /clan currency | /clan upgrade | /clan terraform
     aliases: [clans]
     permission: outlawclans.use
   show:
@@ -26,6 +26,10 @@ commands:
   clanterritorycost:
     description: Définit le coût d'achat du territoire
     usage: /clanterritorycost <amount>
+    permission: outlawclans.admin
+  clanupgrade:
+    description: Définit le coût d'amélioration du territoire
+    usage: /clanupgrade cost <amount>
     permission: outlawclans.admin
   deleteclan:
     description: Supprime votre clan (leader uniquement) — nécessite /deleteclan confirm

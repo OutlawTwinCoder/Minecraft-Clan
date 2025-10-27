@@ -2,6 +2,7 @@
 territory:
   price: 0
   radius: 75           # 150x150
+  upgrade_increase: 50 # ajoute 50 blocs au rayon à chaque amélioration
   world: "world"
 
 building:
@@ -45,15 +46,12 @@ roles:
       name: "&7Recrue"
       permissions: []
 
-economy:
-  mode: "MONEY"         # MONEY ou ITEM
+currency:
+  mode: "EXP"           # EXP ou ITEM
   item_type: "DIAMOND"
-  money:
-    create_clan_cost: 500
-    territory_cost: 1500
-  item:
-    create_clan_cost: 500
-    territory_cost: 1500
+  create_cost: 500
+  territory_cost: 1500
+  upgrade_cost: 5000
 
 schematics:
   require_whitelist: true
