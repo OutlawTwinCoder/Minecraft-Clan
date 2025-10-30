@@ -193,7 +193,8 @@ public class FarmManager implements Listener {
                 player.sendMessage(ChatColor.RED + "Schematic introuvable: " + schematic);
                 return;
             }
-            if (!plugin.schematics().paste(file, spot.getBaseLocation(), 0)) {
+            int rotation = Math.floorMod(spot.getRotationTurns(), 4);
+            if (!plugin.schematics().paste(file, spot.getBaseLocation(), rotation)) {
                 player.sendMessage(ChatColor.RED + "Erreur WorldEdit pendant le collage.");
                 return;
             }

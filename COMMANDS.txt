@@ -5,10 +5,8 @@
 /clan menu
 /clan show territory     | /show clan territoire
 /clan currency money     | /clan currency experience | /clan currency item <ITEM_NAME>
-/clan upgrade
 /createclancost <amount>
 /clanterritorycost <amount>
-/clanupgrade cost <amount>
 /deleteclan confirm
 /leaveclan confirm
 /clan terraform

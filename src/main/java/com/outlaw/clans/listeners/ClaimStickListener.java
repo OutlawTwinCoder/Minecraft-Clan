@@ -3,10 +3,8 @@ package com.outlaw.clans.listeners;
 import com.outlaw.clans.OutlawClansPlugin;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.Territory;
-import com.outlaw.clans.util.Keys;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,9 +12,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.type.WallSign;
-import org.bukkit.block.BlockFace;
 
 import java.io.File;
 
@@ -24,12 +19,10 @@ public class ClaimStickListener implements Listener {
 
     private final OutlawClansPlugin plugin;
     private final NamespacedKey key;
-    private final NamespacedKey plotSignKey;
 
     public ClaimStickListener(OutlawClansPlugin plugin) {
         this.plugin = plugin;
         this.key = new NamespacedKey(plugin, "claim-stick");
-        this.plotSignKey = new NamespacedKey(plugin, Keys.PLOT_SIGN);
     }
 
     @EventHandler
@@ -101,31 +94,6 @@ public class ClaimStickListener implements Listener {
             }, 1L);
         }
 
-        int delay = plugin.getConfig().getInt("terraform.spawn_npc_delay_ticks", 120);
-        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            for (int i = 0; i < clan.getSpots().size(); i++) {
-                var spot = clan.getSpots().get(i);
-                org.bukkit.Location center = spot.getBaseLocation();
-                if (center == null || center.getWorld() == null) continue;
-
-                int phalf = plugin.getConfig().getInt("building.plot_size", 35) / 2;
-
-                int dx = t.getCenterX() - center.getBlockX();
-                int dz = t.getCenterZ() - center.getBlockZ();
-                int sx = Integer.signum(dx);
-                int sz = Integer.signum(dz);
-                if (sx == 0) sx = (sz == 0 ? 1 : sz);
-                if (sz == 0) sz = (sx == 0 ? 1 : sx);
-
-                int cornerX = center.getBlockX() + sx * (phalf - 1);
-                int cornerZ = center.getBlockZ() + sz * (phalf - 1);
-                int cornerY = center.getBlockY() + 1;
-
-                org.bukkit.Location signLoc = new org.bukkit.Location(center.getWorld(), cornerX, cornerY, cornerZ);
-                placePlotSign(signLoc, dx, dz, i);
-            }
-        }, delay);
-
         if (plugin.getConfig().getBoolean("building.center_schematic.enabled", true)) {
             String fileName = plugin.getConfig().getString("building.center_schematic.file", "ClanCenter.schem");
             if (fileName != null && !fileName.trim().isEmpty()) {
@@ -165,26 +133,6 @@ public class ClaimStickListener implements Listener {
                 stack.setAmount(stack.getAmount() - 1);
             }
         }
-    }
-
-    private void placePlotSign(Location loc, int dx, int dz, int index) {
-        if (loc.getWorld() == null) return;
-        Block block = loc.getBlock();
-        Block above = loc.clone().add(0, 1, 0).getBlock();
-        above.setType(Material.AIR, false);
-
-        block.setType(Material.OAK_SIGN, false);
-        var state = block.getState();
-        if (!(state instanceof Sign signState)) return;
-
-        signState.setLine(0, ChatColor.AQUA + "Terrain #" + (index + 1));
-        signState.setLine(1, ChatColor.YELLOW + "Clique pour");
-        signState.setLine(2, ChatColor.YELLOW + "les plans");
-        signState.setLine(3, ChatColor.GRAY + "Rotation incluse");
-        signState.getPersistentDataContainer().set(plotSignKey, PersistentDataType.INTEGER, index);
-        signState.update(true, false);
-
-        orientSignTowardsCenter(block, dx, dz);
     }
 
     private void scheduleFenceGeneration(java.util.List<Location> bases, Territory territory, int thickness, int clearAbove, int perTick, boolean terraformFull) {
@@ -265,29 +213,4 @@ public class ClaimStickListener implements Listener {
         return mod < segment;
     }
 
-    private void orientSignTowardsCenter(Block block, int dx, int dz) {
-        BlockData data = block.getBlockData();
-        if (data instanceof org.bukkit.block.data.type.Sign signData) {
-            BlockFace face = facingFromVector(dx, dz); // ← utilise BlockFace
-            signData.setRotation(face);
-            block.setBlockData(signData, false);
-        } else if (data instanceof WallSign wall) {
-            BlockFace face = facingFromVector(dx, dz);
-            wall.setFacing(face);
-            block.setBlockData(wall, false);
-        }
-    }
-
-    private BlockFace facingFromVector(int dx, int dz) {
-        if (Math.abs(dx) > Math.abs(dz)) {
-            return dx > 0 ? BlockFace.EAST : BlockFace.WEST;
-        }
-        if (Math.abs(dz) > Math.abs(dx)) {
-            return dz > 0 ? BlockFace.SOUTH : BlockFace.NORTH;
-        }
-        if (dx >= 0 && dz >= 0) return BlockFace.SOUTH_EAST;
-        if (dx >= 0) return BlockFace.NORTH_EAST;
-        if (dz >= 0) return BlockFace.SOUTH_WEST;
-        return BlockFace.NORTH_WEST;
-    }
 }

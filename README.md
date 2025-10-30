@@ -10,7 +10,6 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
 - **Banque de clan** : dépôt de monnaie virtuelle, d’XP ou d’items, retrait sécurisé et distribution aux membres via un menu dédié.
 - **Fermes de ressources** configurables : sélection du type (Mine/Ferme/Scierie…), choix du bâtiment (.schem), coffre lié recevant les gains périodiques et préférence d’output.
 - **Système de rôles** flexible (Leader, Officier, Membre, Recrue par défaut) avec permissions togglables directement en jeu.
-- **Amélioration de territoire** : dépense la banque du clan pour augmenter le rayon (+50 blocs par niveau) et relancer la terraformation/feather automatiquement.
 
 ## Installation
 1. Compiler le plugin (`mvn -DskipTests package`) ou déposer la release `OutlawClans-*.jar` dans `plugins/`.
@@ -29,10 +28,8 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
 | `/clan currency money` | Bascule l’économie sur la monnaie virtuelle interne. | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clan currency experience` | Bascule l’économie sur l’XP (alias `/clan currency xp`). | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clan currency item <ITEM_NAME>` | Définit un item monétaire personnalisé (alias ancien `/clan currency <ITEM_NAME>`). | `outlawclans.admin` ou `outlawclan.admin` |
-| `/clan upgrade` | Améliore le territoire (+50 rayon, consomme la banque). | Leader ou rôle avec `MANAGE_TERRAINS` + `MANAGE_TREASURY` |
 | `/createclancost <montant>` | Met à jour le coût de création de clan (config). | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clanterritorycost <montant>` | Met à jour le coût d’achat du territoire (config). | `outlawclans.admin` ou `outlawclan.admin` |
-| `/clanupgrade cost <montant>` | Définit le coût d’amélioration du territoire (config). | `outlawclans.admin` ou `outlawclan.admin` |
 | `/clan terraform` | Relance manuellement la plateforme 150×150 + feather. | `outlawclans.admin` ou `outlawclan.admin` |
 | `/deleteclan confirm` | Dissout le clan (leader uniquement). | Leader (aucune permission plugin) |
 | `/leaveclan confirm` | Quitte le clan (membres non-leaders). | Membre du clan |
@@ -59,7 +56,6 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
   - Tous les membres peuvent déposer leur monnaie.
   - Les rôles avec `MANAGE_TREASURY` (et le leader) peuvent retirer ou distribuer la banque aux membres connectés.
 - **Distribution ciblée** : sélectionnez un montant prédéfini (configurable `economy.amount_buttons`) puis un membre pour lui envoyer immédiatement monnaie/XP/items selon le mode actif.
-- **Amélioration de territoire** : consomme la banque (coût `economy.<mode>.upgrade_cost`) et augmente le rayon de `territory.upgrade_radius_increase` blocs, en relançant la terraformation et les clôtures.
 
 ## Territoires & terrains
 - Après achat, le territoire génère automatiquement :
@@ -70,7 +66,7 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
   - Plateforme 35×35 (`building.plot_size`) nettoyée avant collage de schématique.
   - Protection anti-modification (listeners bloquent break/place hors permissions ou joueurs externes).
   - Clôture décorative si `building.fence.enabled` (segments de `segment_length` blocs alternés avec `gap_length`).
-  - Signalétique et menus renommés "Terrain 1/2/...".
+  - Menus inventaires accessibles depuis le centre pour gérer chaque terrain.
 
 ## Fermes de ressources
 1. Via le menu Terrain > **Bâtiment**, sélectionnez un **type de ferme** configuré.
@@ -86,10 +82,10 @@ OutlawClans fournit une expérience de clans clé en main pour serveurs Paper 1.
    - Les ressources configurées pour le type sont ajoutées dans le coffre selon la **préférence d’output** choisie dans le menu Terrain.
 
 ## Configuration rapide (`config.yml`)
-- `territory.*` : monde cible, rayon de base, incrément d’upgrade (`upgrade_radius_increase`) et coût.
-- `building.*` : nombre de terrains, tailles, offsets (`paste_y_offset`, `sign_y_offset`), configuration des clôtures, schématique du centre.
+- `territory.*` : monde cible, rayon de base et coût.
+- `building.*` : nombre de terrains, tailles, offsets (`paste_y_offset`), configuration des clôtures, schématique du centre.
 - `roles.*` : rôle par défaut attribué aux nouveaux membres et rôles prédéfinis (modifiable en jeu).
-- `economy.*` : mode MONEY / EXPERIENCE / ITEM, type d’item, boutons de montants (`amount_buttons`) et coûts (création/territoire/upgrade).
+- `economy.*` : mode MONEY / EXPERIENCE / ITEM, type d’item et coûts (création/territoire).
 - `schematics.whitelist` : liste des `.schem` autorisées dans les menus.
 - `resource_farms.*` : intervalle de distribution, nom/lore du coffre, types disponibles, outputs et schématiques associées.
 - `terraform.*` & `feather.*` : paramètres de nettoyage/terraforming pour territoire et lissage des bords.

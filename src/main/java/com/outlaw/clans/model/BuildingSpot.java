@@ -10,6 +10,7 @@ public class BuildingSpot {
     private String schematicName;
     private Location farmChestLocation;
     private String resourcePreference;
+    private int rotationTurns;
 
     public BuildingSpot(Location baseLocation) {
         this.baseLocation = baseLocation;
@@ -31,4 +32,6 @@ public class BuildingSpot {
 
     public String getResourcePreference() { return resourcePreference; }
     public void setResourcePreference(String resourcePreference) { this.resourcePreference = resourcePreference; }
+    public int getRotationTurns() { return Math.floorMod(rotationTurns, 4); }
+    public void setRotationTurns(int rotationTurns) { this.rotationTurns = Math.floorMod(rotationTurns, 4); }
 }

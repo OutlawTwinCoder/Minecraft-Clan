@@ -153,6 +153,7 @@ public class ClanManager {
                     clansCfg.set(p+".chest.y", chest.getBlockY());
                     clansCfg.set(p+".chest.z", chest.getBlockZ());
                 }
+                clansCfg.set(p+".rotation", s.getRotationTurns());
                 if (s.getResourcePreference() != null) clansCfg.set(p+".resource", s.getResourcePreference());
             }
         }
@@ -225,6 +226,7 @@ public class ClanManager {
                         int cz = clansCfg.getInt(p+".chest.z");
                         spot.setFarmChestLocation(new Location(chestWorld, cx + 0.5, cy, cz + 0.5));
                     }
+                    spot.setRotationTurns(clansCfg.getInt(p+".rotation", 0));
                     spot.setResourcePreference(clansCfg.getString(p+".resource", null));
                     c.getSpots().add(spot);
                 }
