@@ -37,6 +37,8 @@ public class ClanMenuUI {
     private static final String ACTION_TERRAIN_SETTINGS = "terrain-settings";
     private static final String ACTION_TERRAIN_BUILDINGS = "terrain-buildings";
     private static final String ACTION_TERRAIN_RESOURCES = "terrain-resources";
+    private static final String ACTION_TERRAIN_ROTATE_LEFT = "terrain-rotate-left";
+    private static final String ACTION_TERRAIN_ROTATE_RIGHT = "terrain-rotate-right";
     private static final String ACTION_TERRAIN_SELECT_TYPE = "terrain-select-type";
     private static final String ACTION_TERRAIN_SELECT_SCHEMATIC = "terrain-select-schematic";
     private static final String ACTION_TERRAIN_SET_RESOURCE = "terrain-set-resource";
@@ -313,6 +315,27 @@ public class ClanMenuUI {
         Optional<ResourceFarmType> optType = plugin.farms().getType(spot.getFarmTypeId());
         ResourceFarmType type = optType.orElse(null);
         boolean canManage = clan.canManageTerrains(player.getUniqueId());
+        int rotationTurns = spot.getRotationTurns();
+
+        if (canManage) {
+            ItemStack rotateLeft = actionItem(Material.ARROW, ChatColor.YELLOW + "Rotation -90°",
+                    lore(ChatColor.GRAY + "Actuel: " + ChatColor.YELLOW + formatRotation(rotationTurns),
+                            ChatColor.YELLOW + "Clique pour tourner à gauche."),
+                    ACTION_TERRAIN_ROTATE_LEFT);
+            withPlotIndex(rotateLeft, terrainIndex);
+            inv.setItem(29, rotateLeft);
+
+            ItemStack rotateRight = actionItem(Material.SPECTRAL_ARROW, ChatColor.YELLOW + "Rotation +90°",
+                    lore(ChatColor.GRAY + "Actuel: " + ChatColor.YELLOW + formatRotation(rotationTurns),
+                            ChatColor.YELLOW + "Clique pour tourner à droite."),
+                    ACTION_TERRAIN_ROTATE_RIGHT);
+            withPlotIndex(rotateRight, terrainIndex);
+            inv.setItem(33, rotateRight);
+        } else {
+            inv.setItem(29, infoItem(Material.COMPASS, ChatColor.RED + "Rotation verrouillée",
+                    lore(ChatColor.GRAY + "Actuel: " + ChatColor.YELLOW + formatRotation(rotationTurns),
+                            ChatColor.GRAY + "Ton rôle ne permet pas de changer la rotation.")));
+        }
 
         if (canManage) {
             ItemStack buildingButton = actionItem(type != null ? type.getIcon() : Material.CRAFTING_TABLE,
@@ -575,6 +598,8 @@ public class ClanMenuUI {
             lore.add(ChatColor.GOLD + "Ressource: " + ChatColor.YELLOW + "Défaut");
         }
 
+        lore.add(ChatColor.GOLD + "Rotation: " + ChatColor.YELLOW + formatRotation(spot.getRotationTurns()));
+
         lore.add(spot.getFarmChestLocation() != null
                 ? ChatColor.GREEN + "Coffre: placé"
                 : ChatColor.YELLOW + "Coffre: à placer");
@@ -606,6 +631,7 @@ public class ClanMenuUI {
             Material mat = Material.matchMaterial(spot.getResourcePreference());
             lore.add(ChatColor.GRAY + "Ressource: " + ChatColor.YELLOW + (mat != null ? prettyMaterial(mat) : spot.getResourcePreference()));
         }
+        lore.add(ChatColor.GRAY + "Rotation: " + ChatColor.YELLOW + formatRotation(spot.getRotationTurns()));
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -650,8 +676,8 @@ public class ClanMenuUI {
         ItemStack center = new ItemStack(Material.LECTERN);
         ItemMeta meta = center.getItemMeta();
         meta.setDisplayName(ChatColor.GOLD + "Centre du Clan");
-        meta.setLore(lore(ChatColor.GRAY + "Utilise les pupitres pour ouvrir ce menu.",
-                ChatColor.GRAY + "Les pancartes des terrains remplacent les NPC."));
+        meta.setLore(lore(ChatColor.GRAY + "Utilise le pupitre central pour ouvrir ce menu.",
+                ChatColor.GRAY + "Gère désormais les terrains depuis l'interface."));
         center.setItemMeta(meta);
         return center;
     }
@@ -705,6 +731,12 @@ public class ClanMenuUI {
             builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(' ');
         }
         return builder.toString().trim();
+    }
+
+    private String formatRotation(int turns) {
+        int normalized = Math.floorMod(turns, 4);
+        int degrees = normalized * 90;
+        return degrees + "°";
     }
 
     private ItemStack createFiller() {

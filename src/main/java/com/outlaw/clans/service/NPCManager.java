@@ -1,6 +1,7 @@
 package com.outlaw.clans.service;
 
 import com.outlaw.clans.OutlawClansPlugin;
+import com.outlaw.clans.model.BuildingSpot;
 import com.outlaw.clans.model.Clan;
 import com.outlaw.clans.model.ClanRole;
 import com.outlaw.clans.model.ClanRolePermission;
@@ -209,6 +210,20 @@ public class NPCManager implements Listener {
                         Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
                         plugin.menuUI().openResourcePreferences(player, clan, idx == null ? 0 : idx);
                     }
+                    case "terrain-rotate-left" -> {
+                        if (!clan.canManageTerrains(player.getUniqueId())) {
+                            player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas modifier les terrains.");
+                            return;
+                        }
+                        adjustTerrainRotation(player, clan, meta, -1);
+                    }
+                    case "terrain-rotate-right" -> {
+                        if (!clan.canManageTerrains(player.getUniqueId())) {
+                            player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas modifier les terrains.");
+                            return;
+                        }
+                        adjustTerrainRotation(player, clan, meta, 1);
+                    }
                     case "terrain-select-type" -> {
                         if (!clan.canManageTerrains(player.getUniqueId())) {
                             player.sendMessage(ChatColor.RED + "Ton rôle ne peut pas modifier les terrains.");
@@ -371,6 +386,35 @@ public class NPCManager implements Listener {
                 }
             }
         }
+    }
+
+    private void adjustTerrainRotation(Player player, Clan clan, ItemMeta meta, int deltaTurns) {
+        Integer idx = meta.getPersistentDataContainer().get(clanMenuPlotKey, PersistentDataType.INTEGER);
+        if (idx == null) {
+            player.sendMessage(ChatColor.RED + "Sélection invalide.");
+            return;
+        }
+        if (idx < 0 || idx >= clan.getSpots().size()) {
+            player.sendMessage(ChatColor.RED + "Terrain invalide.");
+            return;
+        }
+
+        BuildingSpot spot = clan.getSpots().get(idx);
+        int newRotation = Math.floorMod(spot.getRotationTurns() + deltaTurns, 4);
+        spot.setRotationTurns(newRotation);
+        plugin.clans().saveAll();
+
+        player.sendMessage(ChatColor.GREEN + "Rotation enregistrée: " + ChatColor.YELLOW + formatRotation(newRotation) + ChatColor.GREEN + ".");
+        if (spot.getFarmTypeId() != null && spot.getSchematicName() != null) {
+            player.sendMessage(ChatColor.GRAY + "Reconstruis le bâtiment pour appliquer cette rotation.");
+        }
+
+        plugin.menuUI().openTerrainSettings(player, clan, idx);
+    }
+
+    private String formatRotation(int turns) {
+        int normalized = Math.floorMod(turns, 4);
+        return (normalized * 90) + "°";
     }
 
     private void giveClaimStick(Player p) {
