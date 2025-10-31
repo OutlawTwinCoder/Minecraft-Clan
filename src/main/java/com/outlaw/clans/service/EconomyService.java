@@ -1,15 +1,19 @@
 package com.outlaw.clans.service;
 
+import com.outlaw.economy.api.EconomyService;
+import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
-import java.lang.reflect.Method;
 import java.util.logging.Level;
 
 public class EconomyService {
@@ -63,7 +67,7 @@ public class EconomyService {
 
     public void give(UUID player, double amount) {
         if (moneyHook.isActive()) {
-            moneyHook.deposit(player, amount);
+            moneyHook.deposit(player, amount, "OutlawClans: deposit");
             return;
         }
         setBalance(player, getBalance(player) + amount);
@@ -71,7 +75,7 @@ public class EconomyService {
 
     public void take(UUID player, double amount) {
         if (moneyHook.isActive()) {
-            moneyHook.withdraw(player, amount);
+            moneyHook.withdraw(player, amount, "OutlawClans: withdraw");
             return;
         }
         setBalance(player, Math.max(0, getBalance(player) - amount));
@@ -105,15 +109,15 @@ public class EconomyService {
         };
     }
 
-    public boolean chargeCreate(Player p) { return charge(p, costCreateClan()); }
-    public boolean chargeTerritory(Player p) { return charge(p, costTerritory()); }
+    public boolean chargeCreate(Player p) { return charge(p, costCreateClan(), "create clan"); }
+    public boolean chargeTerritory(Player p) { return charge(p, costTerritory(), "claim territory"); }
 
-    private boolean charge(Player p, int cost) {
+    private boolean charge(Player p, int cost, String action) {
         if (!canAfford(p, cost)) return false;
         switch (mode()) {
             case MONEY -> {
                 if (moneyHook.isActive()) {
-                    if (!moneyHook.withdraw(p.getUniqueId(), cost)) {
+                    if (!moneyHook.withdraw(p.getUniqueId(), cost, "OutlawClans: " + action)) {
                         return false;
                     }
                 } else {
@@ -154,143 +158,171 @@ public class EconomyService {
     }
 
     private final class MoneyHook {
-        private enum HookType { NONE, SERVICE, STATIC }
-
-        private HookType type = HookType.NONE;
-        private Object serviceInstance;
-        private Method serviceGetBalance;
-        private Method serviceSetBalance;
-        private Method serviceDeposit;
-        private Method serviceWithdraw;
-        private Method serviceHas;
-
-        private Method staticGetBalance;
-        private Method staticDeposit;
-        private Method staticWithdraw;
+        private EconomyAdapter adapter;
 
         void tryHook() {
-            hookServiceManager();
-            if (type == HookType.NONE) {
-                hookStaticApi();
+            if (hookOutlawEconomy()) {
+                return;
             }
-            if (type == HookType.NONE) {
-                plugin.getLogger().warning("OutlawEconomy introuvable, utilisation du stockage interne pour l'argent des clans.");
+            if (hookVault()) {
+                return;
             }
+            plugin.getLogger().warning("Aucun service d'économie trouvé, utilisation du stockage interne pour l'argent des clans.");
         }
 
-        private void hookServiceManager() {
+        private boolean hookOutlawEconomy() {
             try {
-                Class<?> serviceClass = Class.forName("com.outlaweco.api.EconomyService");
-                Object provider = Bukkit.getServicesManager().load((Class) serviceClass);
-                if (provider != null) {
-                    serviceInstance = provider;
-                    serviceGetBalance = serviceClass.getMethod("getBalance", UUID.class);
-                    serviceSetBalance = serviceClass.getMethod("setBalance", UUID.class, double.class);
-                    serviceDeposit = serviceClass.getMethod("deposit", UUID.class, double.class);
-                    serviceWithdraw = serviceClass.getMethod("withdraw", UUID.class, double.class);
-                    serviceHas = serviceClass.getMethod("has", UUID.class, double.class);
-                    type = HookType.SERVICE;
-                    plugin.getLogger().info("Connexion à OutlawEconomy via ServicesManager réussie.");
+                RegisteredServiceProvider<EconomyService> registration =
+                        Bukkit.getServicesManager().getRegistration(EconomyService.class);
+                if (registration == null) {
+                    return false;
                 }
-            } catch (ClassNotFoundException ignored) {
+                adapter = new OutlawEconomyAdapter(registration.getProvider());
+                plugin.getLogger().info("Connexion à OutlawEconomy via ServicesManager réussie.");
+                return true;
+            } catch (NoClassDefFoundError ignored) {
+                return false;
             } catch (Exception ex) {
                 plugin.getLogger().log(Level.WARNING, "Impossible de se connecter à OutlawEconomy via ServicesManager", ex);
+                return false;
             }
         }
 
-        private void hookStaticApi() {
+        private boolean hookVault() {
             try {
-                Class<?> apiClass = Class.forName("com.outlaweco.api.EconomyAPI");
-                staticGetBalance = apiClass.getMethod("getBalance", UUID.class);
-                staticDeposit = apiClass.getMethod("deposit", UUID.class, double.class);
-                staticWithdraw = apiClass.getMethod("withdraw", UUID.class, double.class);
-                type = HookType.STATIC;
-                plugin.getLogger().info("Connexion à OutlawEconomy via l'API statique.");
-            } catch (ClassNotFoundException ignored) {
+                RegisteredServiceProvider<Economy> registration =
+                        Bukkit.getServicesManager().getRegistration(Economy.class);
+                if (registration == null) {
+                    return false;
+                }
+                adapter = new VaultAdapter(registration.getProvider());
+                plugin.getLogger().info("Connexion à Vault réussie (compatibilité économie globale).");
+                return true;
+            } catch (NoClassDefFoundError ignored) {
+                return false;
             } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Impossible d'utiliser l'API statique OutlawEconomy", ex);
+                plugin.getLogger().log(Level.WARNING, "Impossible de se connecter à Vault", ex);
+                return false;
             }
         }
 
         boolean isActive() {
-            return type != HookType.NONE;
+            return adapter != null;
         }
 
         double getBalance(UUID player) {
-            try {
-                return switch (type) {
-                    case SERVICE -> ((Number) serviceGetBalance.invoke(serviceInstance, player)).doubleValue();
-                    case STATIC -> ((Number) staticGetBalance.invoke(null, player)).doubleValue();
-                    default -> 0.0;
-                };
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Erreur lors de la récupération du solde", ex);
-                return 0.0;
-            }
+            return adapter != null ? adapter.getBalance(player) : 0.0;
         }
 
         void setBalance(UUID player, double amount) {
-            try {
-                switch (type) {
-                    case SERVICE -> serviceSetBalance.invoke(serviceInstance, player, amount);
-                    case STATIC -> {
-                        double current = getBalance(player);
-                        double delta = amount - current;
-                        if (Math.abs(delta) < 1e-6) {
-                            return;
-                        }
-                        if (delta > 0) {
-                            deposit(player, delta);
-                        } else {
-                            withdraw(player, -delta);
-                        }
-                    }
-                }
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Erreur lors de la mise à jour du solde", ex);
+            if (adapter != null) {
+                adapter.setBalance(player, amount);
             }
         }
 
-        void deposit(UUID player, double amount) {
-            if (amount <= 0) return;
-            try {
-                switch (type) {
-                    case SERVICE -> serviceDeposit.invoke(serviceInstance, player, amount);
-                    case STATIC -> staticDeposit.invoke(null, player, amount);
-                }
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Erreur lors du dépôt d'argent", ex);
+        void deposit(UUID player, double amount, String reason) {
+            if (adapter != null && amount > 0) {
+                adapter.deposit(player, amount, reason);
             }
         }
 
-        boolean withdraw(UUID player, double amount) {
-            if (amount <= 0) return true;
-            try {
-                return switch (type) {
-                    case SERVICE -> (Boolean) serviceWithdraw.invoke(serviceInstance, player, amount);
-                    case STATIC -> (Boolean) staticWithdraw.invoke(null, player, amount);
-                    default -> false;
-                };
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Erreur lors du retrait d'argent", ex);
-                return false;
+        boolean withdraw(UUID player, double amount, String reason) {
+            if (adapter == null || amount <= 0) {
+                return adapter != null;
             }
+            return adapter.withdraw(player, amount, reason);
         }
 
         boolean canAfford(UUID player, double amount) {
-            if (!isActive()) {
-                return false;
+            return adapter != null && adapter.canAfford(player, amount);
+        }
+    }
+
+    private interface EconomyAdapter {
+        double getBalance(UUID player);
+
+        boolean deposit(UUID player, double amount, String reason);
+
+        boolean withdraw(UUID player, double amount, String reason);
+
+        default boolean canAfford(UUID player, double amount) {
+            return getBalance(player) >= amount;
+        }
+
+        default void setBalance(UUID player, double amount) {
+            double current = getBalance(player);
+            double delta = amount - current;
+            if (Math.abs(delta) < 1e-6) {
+                return;
             }
-            try {
-                return switch (type) {
-                    case SERVICE -> serviceHas != null ? (Boolean) serviceHas.invoke(serviceInstance, player, amount) : getBalance(player) >= amount;
-                    case STATIC -> getBalance(player) >= amount;
-                    default -> false;
-                };
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Erreur lors de la vérification du solde", ex);
-                return getBalance(player) >= amount;
+            if (delta > 0) {
+                deposit(player, delta, "OutlawClans: sync");
+            } else {
+                withdraw(player, -delta, "OutlawClans: sync");
             }
+        }
+    }
+
+    private final class OutlawEconomyAdapter implements EconomyAdapter {
+        private final EconomyService delegate;
+
+        private OutlawEconomyAdapter(EconomyService delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public double getBalance(UUID player) {
+            return delegate.getBalance(player);
+        }
+
+        @Override
+        public boolean deposit(UUID player, double amount, String reason) {
+            return delegate.deposit(player, amount, reason);
+        }
+
+        @Override
+        public boolean withdraw(UUID player, double amount, String reason) {
+            return delegate.withdraw(player, amount, reason);
+        }
+    }
+
+    private final class VaultAdapter implements EconomyAdapter {
+        private final Economy delegate;
+
+        private VaultAdapter(Economy delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public double getBalance(UUID player) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
+            return delegate.getBalance(offlinePlayer);
+        }
+
+        @Override
+        public boolean deposit(UUID player, double amount, String reason) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
+            EconomyResponse response = delegate.depositPlayer(offlinePlayer, amount);
+            if (!response.transactionSuccess()) {
+                plugin.getLogger().log(Level.WARNING, "Vault deposit échoué pour {0}: {1}", new Object[]{offlinePlayer.getName(), response.errorMessage});
+            }
+            return response.transactionSuccess();
+        }
+
+        @Override
+        public boolean withdraw(UUID player, double amount, String reason) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
+            EconomyResponse response = delegate.withdrawPlayer(offlinePlayer, amount);
+            if (!response.transactionSuccess()) {
+                plugin.getLogger().log(Level.WARNING, "Vault withdraw échoué pour {0}: {1}", new Object[]{offlinePlayer.getName(), response.errorMessage});
+            }
+            return response.transactionSuccess();
+        }
+
+        @Override
+        public boolean canAfford(UUID player, double amount) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player);
+            return delegate.has(offlinePlayer, amount);
         }
     }
 }

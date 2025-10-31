@@ -3,7 +3,7 @@ main: com.outlaw.clans.OutlawClansPlugin
 version: 0.3.8
 api-version: '1.21'
 author: Outlaw TwinCoder
-softdepend: [WorldEdit, OutlawEconomy]
+softdepend: [WorldEdit, OutlawEconomy, Vault]
 commands:
   create:
     description: Commandes de création (clan, npc)
